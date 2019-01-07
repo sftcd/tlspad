@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+# set -x
 
 # load useful functions and variables
 . functions.sh
@@ -36,6 +36,9 @@ STPORTS="port 25 or port 110 or port 143 or port 587"
 # and check 'em later see what tcpdump grabs
 PORTS="$PUREPORTS" 
 #PORTS="$PUREPORTS or $STPORTS" 
+
+# the ports given on the command line
+UPORTS=""
 
 function usage()
 {
@@ -99,7 +102,7 @@ do
 		-D|--list) LISTIFS="yes" ;;
         -f|--file) OFILE=$2; shift;;
         -i|--iface) IFACES=$2; shift;;
-        -p|--ports) PORTS=$2; shift;;
+        -p|--ports) UPORTS=$2; shift;;
         -b|--binary) mbin=$2; shift;; 
         -s|--size) MAXSIZE=$2; shift;;
 		(--) shift; break;;
@@ -146,6 +149,23 @@ then
         (*) echo "Can't tell what interface to use - trying \"any\""
            IFACES="any";;
     esac
+fi
+
+if [[ "$UPORTS" != "" ]]
+then
+    lports=""
+    pcount=0
+    for port in $UPORTS
+    do
+        if (( pcount == 0 ))
+        then
+            lports="port $port"
+        else
+            lports="port $port or $lports"
+        fi
+        pcount=$((pcount+1))
+    done
+    PORTS=$lports
 fi
 
 theifs=""
