@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+# set -x
 
 # load useful functions and variables
 . functions.sh
@@ -177,15 +177,27 @@ then
     msize="-a filesize:$MAXSIZE"
     if [[ "$mbend" == "tcpdump" ]]
     then
+        # tcpdump doesn't quite have the right semantics
+        # we set to keep one file of the required size
+        # and a 2nd that'll grow to that size, IOW we 
+        # end up with the MAX capture size we want but
+        # need 2x that much disk 
         max_MiB=$(((MAXSIZE*1024)/10000000))
-        if $((max_MiB <= 0))
+        if [ $((max_MiB <= 0)) ]
         then
-            max_MiB=1
+            max_MiB="1"
         fi
-        msize="-C $max_MiB"
+        msize="-C $max_MiB -W 2" 
     fi
+fi
+
+Zarg=""
+if [[ "$mbend" == "tcpdump" ]]
+then
+    Zarg="-Z $RUNNINGAS"
 fi
 
 
 echo "trying: $mbin -f \"$PORTS\" $theifs at $NOW"
-$mbin $msize -w $ofile -f "$PORTS" $theifs
+$mbin $Zarg $msize -w $ofile -f "$PORTS" $theifs
+
