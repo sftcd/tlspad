@@ -46,3 +46,14 @@ function whichos()
 }
 THISOS=$(whichos)
 
+function amiroot()
+{
+    theuid=`id -u`
+    if [[ "$THEUID" == "0" ]]
+    then
+        echo "root"
+    else
+        echo $USER
+    fi
+}
+RUNNINGAS=$(amiroot)

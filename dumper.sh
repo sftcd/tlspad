@@ -111,7 +111,7 @@ done
 
 # check options
 
-# just in case of command line typo
+# in case of command line typo
 mbend=`basename $mbin`
 if [[ "$mbend" != "tcpdump" && "$mbend" != "tshark" ]]
 then
@@ -119,7 +119,8 @@ then
     exit 2
 fi
 
-if [[ "$THISOS" == "Ubuntu" && "$mbend" == "tcpdump" ]]
+# tcpdump needs a sudo in Ubuntu (if I'm not root)
+if [[ "$THISOS" == "Ubuntu" && "$mbend" == "tcpdump" && "$RUNNINGAS" != "root" ]]
 then
     # need a sudo, for me any
     mbin="sudo $mbin"
