@@ -7,7 +7,7 @@ help mitigate (not necessarily "solve") traffic analysis attacks, particularly,
 for scenarios where Encrypted SNI might be used. 
 
 This is a side project related to my 
-[openssl ESNI fork](https://github.com/sftcd/openssl/esnisfuff/design.md)
+[openssl ESNI fork](https://github.com/sftcd/openssl/blob/master/esnistuff/design.md)
 
 To start with, I need some idea of what packets sizes are used in the wild, so
 initial work relates to a [measurement script](dumper.sh) to capture some
