@@ -175,6 +175,15 @@ msize=""
 if [[ "$MAXSIZE" != "0" ]]
 then
     msize="-a filesize:$MAXSIZE"
+    if [[ "$mbend" == "tcpdump" ]]
+    then
+        max_MiB=$(((MAXSIZE*1024)/10000000))
+        if $((max_MiB <= 0))
+        then
+            max_MiB=1
+        fi
+        msize="-C $max_MiB"
+    fi
 fi
 
 
