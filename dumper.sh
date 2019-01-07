@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# set -x
+set -x
 
 # load useful functions and variables
 . functions.sh
@@ -182,8 +182,8 @@ then
         # and a 2nd that'll grow to that size, IOW we 
         # end up with the MAX capture size we want but
         # need 2x that much disk 
-        max_MiB=$(((MAXSIZE*1024)/10000000))
-        if [ $((max_MiB <= 0)) ]
+        max_MiB=$(((MAXSIZE*1024)/1000000))
+        if (( max_MiB <= 0 ))
         then
             max_MiB="1"
         fi
