@@ -48,7 +48,7 @@ function usage()
     echo "-p - specifiy port(s) to monitor (quoted list if >1)"
     echo "-i - specifiy interface(s) to monitor (quoted list if >1)"
     echo "-b - specify binary/tool to use, one of \"tcpdump\" or \"tshark\""
-    echo "-s - specify the max size of the file to capture (exit when done)"
+    echo "-s - specify the max size of the file to capture (exit when done) units KB, default: 1024"
 	exit 99
 }
 
@@ -66,7 +66,7 @@ OFILE="."
 IFACES=""
 
 # max size to capture, 0 == unlimited
-MAXSIZE=0
+MAXSIZE=1024
 
 # which tool to use
 tshark=`which tshark`
@@ -157,5 +157,26 @@ do
     theifs="-i $iface $theifs"
 done
 
+# handle output location and sizing
+ofile=""
+if [ -d $OFILE ]
+then
+    ofile="$OFILE/dumper-$NOW.pcap"
+elif [ -f $OFILE ]
+then
+    # backup old file
+    mv $OFILE $OFILE-backup-at-$NOW.pcap
+    ofile=$OFILE
+else
+    ofile=$OFILE
+fi
+
+msize=""
+if [[ "$MAXSIZE" != "0" ]]
+then
+    msize="-a filesize:$MAXSIZE"
+fi
+
+
 echo "trying: $mbin -f \"$PORTS\" $theifs at $NOW"
-$mbin -f "$PORTS" $theifs
+$mbin $msize -w $ofile -f "$PORTS" $theifs
