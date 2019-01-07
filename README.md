@@ -9,7 +9,9 @@ for scenarios where Encrypted SNI might be used.
 This is a side project related to my 
 [openssl ESNI fork](https://github.com/sftcd/openssl/blob/master/esnistuff/design.md)
 
-To start with, I need some idea of what packets sizes are used in the wild, so
+To start with, I need some idea of what packet sizes are used in the wild, so
 initial work relates to a [measurement script](dumper.sh) to capture some
 packets. Once I have some of those, I'll figure out how I want to analyse
 the pcap files.
+
+Note: we won't decrypt or MitM any TLS sessions for this.
