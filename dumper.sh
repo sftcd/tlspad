@@ -2,8 +2,10 @@
 
 # set -x
 
+SRCDIR=$HOME/code/tlspad
+
 # load useful functions and variables
-. functions.sh
+. $SRCDIR/functions.sh
 
 # 
 # Copyright (C) 2018 Stephen Farrell, stephen.farrell@cs.tcd.ie
@@ -218,6 +220,6 @@ then
 fi
 
 
-echo "trying: $mbin -f \"$PORTS\" $theifs at $NOW"
+echo "trying: $mbin $Zarg $msize -w $ofile -f \"$PORTS\" $theifs at $NOW"
 $mbin $Zarg $msize -w $ofile -f "$PORTS" $theifs
 
