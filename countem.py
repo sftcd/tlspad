@@ -27,14 +27,25 @@ try:
             print(dir(pkt.tcp))
             sys.exit(1)
         if 'ssl' not in pkt:
-            print("Skipping\n");
             continue
-        #if 'app_data' in pkt.ssl:
-            #ss="App data"+pkt.ssl['record_length']
+        if not hasattr(pkt.ssl,'record_content_type'):
+            continue
 
-        print(src+":"+sport+"->"+dst+":"+dport+"\n")
-        print(dir(pkt.ssl))
-        print(pkt.ssl)
+        if pkt.ssl.record_content_type=="22":
+            # handshake
+            print("Handsshake")
+            print(src+":"+sport+"->"+dst+":"+dport)
+            print(dir(pkt.ssl))
+            print(pkt.ssl)
+        elif pkt.ssl.record_content_type=="23":
+            # application data
+            print(src+":"+sport+"->"+dst+":"+dport)
+            print("RCT: " + pkt.ssl.record_content_type + "APDU length:" + pkt.ssl.record_length)
+            
+
+        #print(dir(pkt.ssl))
+        #print(pkt.ssl)
+
 
 except Exception as e:
     sys.stderr.write("Exception: " + str(e) + "\n")
