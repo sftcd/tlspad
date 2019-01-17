@@ -24,6 +24,7 @@
 # TLS parameters (numbers used below variously) are found at:
 # https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml
 
+import traceback
 import os,sys,argparse,re,random
 import pyshark
 
@@ -70,6 +71,7 @@ if len(flist)==0:
 class TLSSession():
     __slots__ = [ 
             'sess_id',
+            'start_time',
             'src',
             'sport',
             'dst',
@@ -77,11 +79,14 @@ class TLSSession():
             'certsize',
             'cvsize',
             's_psizes',
-            'd_psizes'
+            's_delays',
+            'd_psizes',
+            'd_delays'
             ]
 
-    def __init__(self,src='',sport='',dst='',dport=''):
+    def __init__(self,stime=0,src='',sport='',dst='',dport=''):
         self.sess_id=random.getrandbits(32)
+        self.start_time=stime # file-relative start time of session
         self.src=src # client IP (v4 or v6)
         self.sport=sport # client port
         self.dst=dst  # server IP
@@ -89,44 +94,47 @@ class TLSSession():
         self.certsize=0 # cert size if seen in h/
         self.cvsize=0 # cert verify size if seen in h/s
         self.s_psizes=[] # list of APDU sizes from src, 0 is 1st, 1 2nd seen etc.
+        self.s_delays=[] # list of relative time offsets from session start
         self.d_psizes=[] # list of APDU sizes from dst, 0 is 1st, 1 2nd seen etc.
+        self.d_delays=[] # list of relative time offsets from session start
 
     def __str__(self):
-        return "ID: " + str(self.sess_id) + "\n" + \
+        return "ID: " + str(self.sess_id) + " file relative time: " + str(self.start_time) + "\n" + \
                 "\t" + self.src + ":" + self.sport + "->" + self.dst + ":" + self.dport + \
                     " cert: " +  str(self.certsize) + " cv size: " + str(self.cvsize) + "\n" +  \
-                "\t" + "source  packet sizes: " + str(self.s_psizes) + "\n" + \
-                "\t" + "dest packet sizes: " + str(self.d_psizes) 
+                "\t" + "source packet sizes: " + str(self.s_psizes) + "\n"+ \
+                "\t" + "source packet times: " + str(self.s_delays) + "\n" + \
+                "\t" + "dest packet sizes: " + str(self.d_psizes) + "\n" + \
+                "\t" + "dest packet times: " + str(self.d_delays) 
 
-    def add_apdu(self,size,src):
+    def add_apdu(self,size,pkttime,src):
+        tdiff=pkttime-self.start_time
+        msecs=tdiff.microseconds/1000
         if src==True:
             self.s_psizes.append(size)
+            self.s_delays.append(msecs)
         elif src==False:
             self.d_psizes.append(size)
+            self.d_delays.append(msecs)
         else:
             raise ValueError('Bad boolean given to add_apdu')
 
-def sess_find(sessions,src,sport,dst,dport):
+def sess_find(sessions,ptime,src,sport,dst,dport):
     for s in sessions:
         if s.src==src and s.sport==sport and s.dst==dst and s.dport==dport:
             return s
         elif s.src==dst and s.sport==dport and s.dst==src and s.dport==sport:
             return s
     # otherwise make a new one
-    s=TLSSession()
     # extend this set of know server ports sometime
     if dport==443 or dport==993:
-        s.src=src
-        s.sport=sport
-        s.dst=dst
-        s.dport=dport
+        s=TLSSession(ptime,src,sport,dest,dport)
+        sessions.append(s)
+        return s
     else:
-        s.src=src
-        s.sport=sport
-        s.dst=dst
-        s.dport=dport
-    sessions.append(s)
-    return s
+        s=TLSSession(ptime,dst,dport,src,sport)
+        sessions.append(s)
+        return s
 
 # our array of TLS sessions
 sessions=[]
@@ -163,7 +171,7 @@ for fname in flist:
                 continue
 
             # see if this is a known session or not
-            this_sess=sess_find(sessions,src,sport,dst,dport)
+            this_sess=sess_find(sessions,pkt.sniff_time,src,sport,dst,dport)
     
             if pkt.ssl.record_content_type=="22":
                 # handshake
@@ -204,9 +212,10 @@ for fname in flist:
                     sys.stderr.write(str(pkt.ssl) + "\n")
             elif pkt.ssl.record_content_type=="23":
                 # application data, count it!
-                this_sess.add_apdu(pkt.ssl.record_length,(this_sess.src==src))
+                this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,(this_sess.src==src))
         f.close()
     except Exception as e:
+        sys.stderr.write(str(traceback.format_exc()))
         sys.stderr.write("Exception: " + str(e) + "\n")
  
 print("Found " + str(len(sessions)) + " sessions.\n")
