@@ -61,56 +61,57 @@ if len(flist)==0:
     sys.exit(1)
 
 for fname in flist:
-	print("Processing " + fname)
-	f = pyshark.FileCapture(fname,display_filter='ssl')
-	try:
-	    for pkt in f:
-	        src=""
-	        if 'ip' in pkt:
-	            src=pkt.ip.src
-	            dst=pkt.ip.dst
-	        elif 'ipv6' in pkt:
-	            src=pkt.ipv6.src
-	            dst=pkt.ipv6.dst
-	        else:
-	            print("No sender!");
-	            print(dir(pkt))
-	            sys.exit(1)
-	        if 'tcp' in pkt:
-	            dport=pkt.tcp.dstport
-	            sport=pkt.tcp.srcport
-	        else:
-	            print(dir(pkt.tcp))
-	            sys.exit(1)
-	        if 'ssl' not in pkt:
-	            continue
-	        if not hasattr(pkt.ssl,'record_content_type'):
-	            continue
-	
-	        if pkt.ssl.record_content_type=="22":
-	            # handshake
-	            if hasattr(pkt.ssl,'handshake_type'):
-	                if pkt.ssl.handshake_type=="1":
-	                    print("Client Hello")
-	                elif pkt.ssl.handshake_type=="2":
-	                    print("Server Hello")
-	                else:
-	                    print("Handsshake: " + pkt.ssl.handshake_type)
-	            else:
-	                print("Weird Handsshake: ")
-	                print(dir(pkt.ssl))
-	                print(pkt.ssl)
-	            print(src+":"+sport+"->"+dst+":"+dport)
-	        elif pkt.ssl.record_content_type=="23":
-	            # application data
-	            print(src+":"+sport+"->"+dst+":"+dport)
-	            print("RCT: " + pkt.ssl.record_content_type + "APDU length:" + pkt.ssl.record_length)
-	            
-	
-	        #print(dir(pkt.ssl))
-	        #print(pkt.ssl)
-	
-	
-	except Exception as e:
-	    sys.stderr.write("Exception: " + str(e))
-	
+    print("Processing " + fname)
+    try:
+        f = pyshark.FileCapture(fname,display_filter='ssl')
+        for pkt in f:
+            src=""
+            if 'ip' in pkt:
+                src=pkt.ip.src
+                dst=pkt.ip.dst
+            elif 'ipv6' in pkt:
+                src=pkt.ipv6.src
+                dst=pkt.ipv6.dst
+            else:
+                print("No sender!");
+                print(dir(pkt))
+                sys.exit(1)
+            if 'tcp' in pkt:
+                dport=pkt.tcp.dstport
+                sport=pkt.tcp.srcport
+            else:
+                print(dir(pkt.tcp))
+                sys.exit(1)
+            if 'ssl' not in pkt:
+                continue
+            if not hasattr(pkt.ssl,'record_content_type'):
+                continue
+    
+            if pkt.ssl.record_content_type=="22":
+                # handshake
+                if hasattr(pkt.ssl,'handshake_type'):
+                    if pkt.ssl.handshake_type=="1":
+                        print("Client Hello")
+                    elif pkt.ssl.handshake_type=="2":
+                        print("Server Hello")
+                    elif pkt.ssl.handshake_type=="11":
+                        print("Certificate")
+                    elif pkt.ssl.handshake_type=="15":
+                        print("CertificateVerify")
+                    else:
+                        print("Handsshake: " + pkt.ssl.handshake_type)
+                else:
+                    print("Weird Handsshake: ")
+                    print(dir(pkt.ssl))
+                    print(pkt.ssl)
+                print(src+":"+sport+"->"+dst+":"+dport)
+            elif pkt.ssl.record_content_type=="23":
+                # application data
+                print(src+":"+sport+"->"+dst+":"+dport)
+                print("RCT: " + pkt.ssl.record_content_type + "APDU length:" + pkt.ssl.record_length)
+            #print(dir(pkt.ssl))
+            #print(pkt.ssl)
+        f.close()
+    except Exception as e:
+        sys.stderr.write("Exception: " + str(e))
+    
