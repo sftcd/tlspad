@@ -126,7 +126,6 @@ def sess_find(sessions,src,sport,dst,dport):
         s.dst=dst
         s.dport=dport
     sessions.append(s)
-    #print(s)
     return s
 
 # our array of TLS sessions
@@ -146,17 +145,18 @@ for fname in flist:
                 src=pkt.ipv6.src
                 dst=pkt.ipv6.dst
             else:
-                print("No sender!");
-                print(dir(pkt))
-                sys.exit(1)
+                sys.stderr.write("No sender!\n");
+                sys.stderr.write(str(dir(pkt))+"\n")
+                sys.stderr.write(str(pkt)+"\n")
+                continue
             if 'tcp' in pkt:
                 dport=pkt.tcp.dstport
                 sport=pkt.tcp.srcport
             else:
-                print("Not a TCP packet!")
-                print(dir(pkt))
-                print(pkt)
-                sys.exit(1)
+                sys.stderr.write("Not a TCP packet!"+"\n")
+                sys.stderr.write(str(dir(pkt))+"\n")
+                sys.stderr.write(str(pkt)+"\n")
+                continue
             if 'ssl' not in pkt:
                 continue
             if not hasattr(pkt.ssl,'record_content_type'):
@@ -189,26 +189,26 @@ for fname in flist:
                     elif pkt.ssl.handshake_type=="15":
                         #print("CertificateVerify")
                         pass
+                    elif pkt.ssl.handshake_type=="22":
+                        #print("CertificateStatus")
+                        pass
                     else:
-                        print("Handsshake: " + pkt.ssl.handshake_type)
-                        print(src+":"+sport+"->"+dst+":"+dport)
-                        print(dir(pkt.ssl))
-                        print(pkt.ssl)
+                        sys.stderr.write("Handsshake: " + pkt.ssl.handshake_type + "\n")
+                        sys.stderr.write(src+":"+sport+"->"+dst+":"+dport + "\n")
+                        sys.stderr.write(str(dir(pkt.ssl)) + "\n")
+                        sys.stderr.write(str(pkt.ssl) + "\n")
                 else:
-                    print("Weird Handsshake: ")
-                    print(src+":"+sport+"->"+dst+":"+dport)
-                    print(dir(pkt.ssl))
-                    print(pkt.ssl)
+                    sys.stderr.write("Weird Handsshake: " + "\n")
+                    sys.stderr.write(src+":"+sport+"->"+dst+":"+dport + "\n")
+                    sys.stderr.write(str(dir(pkt.ssl)) + "\n")
+                    sys.stderr.write(str(pkt.ssl) + "\n")
             elif pkt.ssl.record_content_type=="23":
-                # application data
-                #print(src+":"+sport+"->"+dst+":"+dport)
-                #print("RCT: " + pkt.ssl.record_content_type + "APDU length:" + pkt.ssl.record_length)
+                # application data, count it!
                 this_sess.add_apdu(pkt.ssl.record_length,(this_sess.src==src))
-            #print(dir(pkt.ssl))
-            #print(pkt.ssl)
         f.close()
     except Exception as e:
         sys.stderr.write("Exception: " + str(e) + "\n")
  
+print("Found " + str(len(sessions)) + " sessions.\n")
 for s in sessions:
     print(s)
