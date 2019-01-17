@@ -187,6 +187,7 @@ for fname in flist:
                         pass
                     elif pkt.ssl.handshake_type=="11":
                         #print("Certificate")
+                        this_sess.certsize=pkt.ssl.record_length
                         pass
                     elif pkt.ssl.handshake_type=="12":
                         #print("ServerKeyExchange")
