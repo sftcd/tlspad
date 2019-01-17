@@ -2,13 +2,8 @@
 
 # set -x
 
-SRCDIR=$HOME/code/tlspad
-
-# load useful functions and variables
-. $SRCDIR/functions.sh
-
 # 
-# Copyright (C) 2018 Stephen Farrell, stephen.farrell@cs.tcd.ie
+# Copyright (C) 2019 Stephen Farrell, stephen.farrell@cs.tcd.ie
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +22,11 @@ SRCDIR=$HOME/code/tlspad
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+
+SRCDIR=$HOME/code/tlspad
+
+# load useful functions and variables
+. $SRCDIR/functions.sh
 
 # ports that only run TLS, less privacy concern with logs here
 PUREPORTS="port 443 or port 853 or port 993"
