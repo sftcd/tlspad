@@ -25,7 +25,7 @@
 # https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml
 
 import traceback
-import os,sys,argparse,re,random
+import os,sys,argparse,re,random,time
 import pyshark
 
 # take file or directory name on command line, default to current dir
@@ -71,6 +71,7 @@ if len(flist)==0:
 class TLSSession():
     __slots__ = [ 
             'sess_id',
+            'version',
             'start_time',
             'src',
             'sport',
@@ -84,8 +85,9 @@ class TLSSession():
             'd_delays'
             ]
 
-    def __init__(self,stime=0,src='',sport='',dst='',dport=''):
+    def __init__(self,ver='',stime=0,src='',sport='',dst='',dport=''):
         self.sess_id=random.getrandbits(32)
+        self.version=ver
         self.start_time=stime # file-relative start time of session
         self.src=src # client IP (v4 or v6)
         self.sport=sport # client port
@@ -99,7 +101,7 @@ class TLSSession():
         self.d_delays=[] # list of relative time offsets from session start
 
     def __str__(self):
-        return "ID: " + str(self.sess_id) + " time: " + str(self.start_time) + "\n" + \
+        return "ID: " + str(self.sess_id) + " V:" + ver + " time: " + str(self.start_time) + "\n" + \
                 "\t" + self.src + ":" + self.sport + "->" + self.dst + ":" + self.dport + \
                     " cert: " +  str(self.certsize) + " cv size: " + str(self.cvsize) + "\n" +  \
                 "\t" + "source packet sizes: " + str(self.s_psizes) + "\n"+ \
@@ -119,7 +121,7 @@ class TLSSession():
         else:
             raise ValueError('Bad boolean given to add_apdu')
 
-def sess_find(sessions,ptime,src,sport,dst,dport):
+def sess_find(sessions,ver,ptime,src,sport,dst,dport):
     for s in sessions:
         if s.src==src and s.sport==sport and s.dst==dst and s.dport==dport:
             return s
@@ -129,18 +131,18 @@ def sess_find(sessions,ptime,src,sport,dst,dport):
     # extend this set of know server ports sometime
     if dport=="443" or dport=="853" or dport=="993":
         #sys.stderr.write("New Session option 1: " + sport + "->" + dport + "\n") 
-        s=TLSSession(ptime,src,sport,dst,dport)
+        s=TLSSession(ver,ptime,src,sport,dst,dport)
         sessions.append(s)
         return s
     elif sport=="443" or sport=="853" or sport=="993":
         #sys.stderr.write("New Session option 2: " + sport + "->" + dport + "\n") 
-        s=TLSSession(ptime,dst,dport,src,sport)
+        s=TLSSession(ver,ptime,dst,dport,src,sport)
         sessions.append(s)
         return s
     else:
         # take 'em as they come
         #sys.stderr.write("New Session option 3: " + sport + "->" + dport + "\n") 
-        s=TLSSession(ptime,src,sport,dst,dport)
+        s=TLSSession(ver,ptime,src,sport,dst,dport)
         sessions.append(s)
         return s
 
@@ -174,14 +176,26 @@ for fname in flist:
                 sys.stderr.write(str(pkt)+"\n")
                 continue
             if 'ssl' not in pkt:
+                #print ("Skipping non SSL packet from " + src)
                 continue
-            if not hasattr(pkt.ssl,'record_content_type'):
+            if not (hasattr(pkt.ssl,'record_content_type') or hasattr(pkt.ssl,'record_opaque_type')):
+                #print("Skipping SSL packet with nonsense content")
                 continue
 
+            ver='unknown'
+            if hasattr(pkt.ssl,'record_version'):
+                ver=pkt.ssl.record_version
+
             # see if this is a known session or not
-            this_sess=sess_find(sessions,pkt.sniff_time,src,sport,dst,dport)
-    
-            if pkt.ssl.record_content_type=="22":
+            this_sess=sess_find(sessions,ver,pkt.sniff_time,src,sport,dst,dport)
+
+            if hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="20":
+                # print("ChangeCipherSpec")
+                pass
+            elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="21":
+                # print("EncryptedAlert")
+                pass
+            elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="22":
                 # handshake
                 if hasattr(pkt.ssl,'handshake_type'):
                     if pkt.ssl.handshake_type=="1":
@@ -196,6 +210,7 @@ for fname in flist:
                     elif pkt.ssl.handshake_type=="11":
                         #print("Certificate")
                         this_sess.certsize=pkt.ssl.record_length
+                        # If RSA:
                         # Use the server cert modulus size as a proxy for what
                         # would be the size of a TLS1.3 CertificateVerify
                         # Modulus format here is of the form "00:aa:bb..."
@@ -204,17 +219,26 @@ for fname in flist:
                         # then add 10 which'd be the overhead for a TLS1.3 CertificateVerify
                         # So bottom line is divide by 3, then add 10
                         # and "//" is integer divide for python 3
-                        mlen=len(pkt.ssl.pkcs1_modulus)
-                        mlen=(mlen//3)+10
-                        if this_sess.cvsize==0:
-                            this_sess.cvsize=mlen
-                        else:
-                            # Don't think this should happen, but who knows...
-                            # If it does, better we know
-                            sys.stderr.write("Re-setting cvsize for " + str(this_sess.sess_id) + \
+                        if hasattr(pkt.ssl,'pkcs1_modulus'):
+                            mlen=len(pkt.ssl.pkcs1_modulus)
+                            mlen=(mlen//3)+10
+                            if this_sess.cvsize==0:
+                                this_sess.cvsize=mlen
+                            else:
+                                # Don't think this should happen, but who knows...
+                                # If it does, better we know
+                                sys.stderr.write("Re-setting cvsize for " + str(this_sess.sess_id) + \
                                     " from: " + str(this_sess.cvsize) + \
                                     " to: " + str(mlen) + "\n" )
-                            this_sess.cvsize=mlen
+                                this_sess.cvsize=mlen
+                        elif hasattr(pkt.ssl,'pkcs1_ecparameters') and hasattr(pkt.ssl,'x509af_subjectpublickey'):
+                            # same encoding as above
+                            pklen=len(pkt.ssl.x509af_subjectpublickey)//3+10
+                            this_sess.cvsize=pklen
+                        else:
+                            sys.stderr.write("No modulus or ECParameters for session: " + str(this_sess.sess_id)+ "\n")
+                            sys.stderr.write(str(dir(pkt.ssl))+ "\n")
+                            sys.stderr.write(str(pkt.ssl)+ "\n")
                     elif pkt.ssl.handshake_type=="12":
                         #print("ServerKeyExchange")
                         pass
@@ -229,7 +253,7 @@ for fname in flist:
                         #print("CertificateStatus")
                         pass
                     else:
-                        sys.stderr.write("Handsshake: " + pkt.ssl.handshake_type + "\n")
+                        sys.stderr.write("Handshake: " + pkt.ssl.handshake_type + "\n")
                         sys.stderr.write(src+":"+sport+"->"+dst+":"+dport + "\n")
                         sys.stderr.write(str(dir(pkt.ssl)) + "\n")
                         sys.stderr.write(str(pkt.ssl) + "\n")
@@ -237,15 +261,33 @@ for fname in flist:
                     # This should just be encrypted Finished messages in TLS1.2
                     # but can be others in TLS1.3 - we'll ignore 'em anyway
                     # (for now:-)
-                    sys.stderr.write("Weird Handsshake: " + "\n")
-                    sys.stderr.write(src+":"+sport+"->"+dst+":"+dport + "\n")
-                    sys.stderr.write(str(dir(pkt.ssl)) + "\n")
-                    sys.stderr.write(str(pkt.ssl) + "\n")
+                    #sys.stderr.write("Weird Handsshake: " + "\n")
+                    #sys.stderr.write(src+":"+sport+"->"+dst+":"+dport + "\n")
+                    #sys.stderr.write(str(dir(pkt.ssl)) + "\n")
+                    #sys.stderr.write(str(pkt.ssl) + "\n")
                     pass
-            elif pkt.ssl.record_content_type=="23":
+            elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="23":
                 # application data, count it!
                 this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,(this_sess.src==src))
+            elif hasattr(pkt.ssl,'record_opaque_type') and pkt.ssl.record_opaque_type=="23":
+                # also application data, count it! why the diference I wonder?
+                if not hasattr(pkt.ssl,'change_cipher_spec'):
+                    this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,(this_sess.src==src))
+                else:
+                    #print("CCS")
+                    pass
+            elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="24":
+                # print("Heartbeat!")
+                pass
+            else:
+                sys.stderr.write("Unexpected Message: "  + str(this_sess.sess_id) + "\n")
+                sys.stderr.write(str(dir(pkt.ssl))+"\n")
+                sys.stderr.write(str(pkt.ssl)+"\n")
         f.close()
+        # there's occasional (but possibly predictable, not sure) exceptions
+        # from the bowels of tshark, maybe a little sleep with fix...
+        # time.sleep(5) 
+        # nope, didn't work
     except Exception as e:
         sys.stderr.write(str(traceback.format_exc()))
         sys.stderr.write("Exception: " + str(e) + "\n")
@@ -253,3 +295,5 @@ for fname in flist:
 print("Found " + str(len(sessions)) + " sessions.\n")
 for s in sessions:
     print(s)
+    time.sleep(0.01) 
+
