@@ -99,7 +99,7 @@ class TLSSession():
         self.d_delays=[] # list of relative time offsets from session start
 
     def __str__(self):
-        return "ID: " + str(self.sess_id) + " file relative time: " + str(self.start_time) + "\n" + \
+        return "ID: " + str(self.sess_id) + " time: " + str(self.start_time) + "\n" + \
                 "\t" + self.src + ":" + self.sport + "->" + self.dst + ":" + self.dport + \
                     " cert: " +  str(self.certsize) + " cv size: " + str(self.cvsize) + "\n" +  \
                 "\t" + "source packet sizes: " + str(self.s_psizes) + "\n"+ \
@@ -127,12 +127,20 @@ def sess_find(sessions,ptime,src,sport,dst,dport):
             return s
     # otherwise make a new one
     # extend this set of know server ports sometime
-    if dport==443 or dport==993:
-        s=TLSSession(ptime,src,sport,dest,dport)
+    if dport=="443" or dport=="853" or dport=="993":
+        #sys.stderr.write("New Session option 1: " + sport + "->" + dport + "\n") 
+        s=TLSSession(ptime,src,sport,dst,dport)
+        sessions.append(s)
+        return s
+    elif sport=="443" or sport=="853" or sport=="993":
+        #sys.stderr.write("New Session option 2: " + sport + "->" + dport + "\n") 
+        s=TLSSession(ptime,dst,dport,src,sport)
         sessions.append(s)
         return s
     else:
-        s=TLSSession(ptime,dst,dport,src,sport)
+        # take 'em as they come
+        #sys.stderr.write("New Session option 3: " + sport + "->" + dport + "\n") 
+        s=TLSSession(ptime,src,sport,dst,dport)
         sessions.append(s)
         return s
 
@@ -188,7 +196,25 @@ for fname in flist:
                     elif pkt.ssl.handshake_type=="11":
                         #print("Certificate")
                         this_sess.certsize=pkt.ssl.record_length
-                        pass
+                        # Use the server cert modulus size as a proxy for what
+                        # would be the size of a TLS1.3 CertificateVerify
+                        # Modulus format here is of the form "00:aa:bb..."
+                        # So we want to loose the colons (1/3 of length)
+                        # then divide by 2 to get octets
+                        # then add 10 which'd be the overhead for a TLS1.3 CertificateVerify
+                        # So bottom line is divide by 3, then add 10
+                        # and "//" is integer divide for python 3
+                        mlen=len(pkt.ssl.pkcs1_modulus)
+                        mlen=(mlen//3)+10
+                        if this_sess.cvsize==0:
+                            this_sess.cvsize=mlen
+                        else:
+                            # Don't think this should happen, but who knows...
+                            # If it does, better we know
+                            sys.stderr.write("Re-setting cvsize for " + str(this_sess.sess_id) + \
+                                    " from: " + str(this_sess.cvsize) + \
+                                    " to: " + str(mlen) + "\n" )
+                            this_sess.cvsize=mlen
                     elif pkt.ssl.handshake_type=="12":
                         #print("ServerKeyExchange")
                         pass
@@ -197,6 +223,7 @@ for fname in flist:
                         pass
                     elif pkt.ssl.handshake_type=="15":
                         #print("CertificateVerify")
+                        this_sess.cvsize=pkt.ssl.record_length
                         pass
                     elif pkt.ssl.handshake_type=="22":
                         #print("CertificateStatus")
@@ -207,10 +234,14 @@ for fname in flist:
                         sys.stderr.write(str(dir(pkt.ssl)) + "\n")
                         sys.stderr.write(str(pkt.ssl) + "\n")
                 else:
+                    # This should just be encrypted Finished messages in TLS1.2
+                    # but can be others in TLS1.3 - we'll ignore 'em anyway
+                    # (for now:-)
                     sys.stderr.write("Weird Handsshake: " + "\n")
                     sys.stderr.write(src+":"+sport+"->"+dst+":"+dport + "\n")
                     sys.stderr.write(str(dir(pkt.ssl)) + "\n")
                     sys.stderr.write(str(pkt.ssl) + "\n")
+                    pass
             elif pkt.ssl.record_content_type=="23":
                 # application data, count it!
                 this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,(this_sess.src==src))

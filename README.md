@@ -20,7 +20,7 @@ the pcap files.
 
 - [dumper.sh](dumper.sh) is a bash script that's a small wrapper on tshark or tcpdump
     - [functions.sh](functions.sh) has some bash utility stuff I tend to re-use
-- [TLSPacketSizes.py](TLSPacketSizes.py) does some simple counts of TLS packet sizes PCAP files 
+- [TLSPacketSizes.py](TLSPacketSizes.py) does some simple counts of TLS packet sizes in PCAP files 
 
 ## Tools used
 
