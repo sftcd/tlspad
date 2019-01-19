@@ -103,7 +103,7 @@ class TLSSession():
         self.d_delays=[] # list of relative time offsets from session start
 
     def __str__(self):
-        return "ID: " + str(self.sess_id) + " V:" + ver + " time: " + str(self.start_time) + "\n" + \
+        return "ID: " + str(self.sess_id) + " V:" + ver + " time: " + str(self.start_time) + "from: " + self.fname + "\n" + \
                 "\t" + self.src + ":" + self.sport + "->" + self.dst + ":" + self.dport + \
                     " cert: " +  str(self.certsize) + " cv size: " + str(self.cvsize) + "\n" +  \
                 "\t" + "source packet sizes: " + str(self.s_psizes) + "\n"+ \
@@ -121,7 +121,7 @@ class TLSSession():
             self.d_psizes.append(size)
             self.d_delays.append(msecs)
         else:
-            raise ValueError('Bad boolean given to add_apdu')
+            raise ValueError('Bad (non-boolean) given to add_apdu')
 
 def sess_find(fname,sessions,ver,ptime,src,sport,dst,dport):
     for s in sessions:
