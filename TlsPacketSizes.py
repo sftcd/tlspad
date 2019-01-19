@@ -71,6 +71,7 @@ if len(flist)==0:
 class TLSSession():
     __slots__ = [ 
             'sess_id',
+            'fname',
             'version',
             'start_time',
             'src',
@@ -85,9 +86,10 @@ class TLSSession():
             'd_delays'
             ]
 
-    def __init__(self,ver='',stime=0,src='',sport='',dst='',dport=''):
+    def __init__(self,fname='',ver='',stime=0,src='',sport='',dst='',dport=''):
         self.sess_id=random.getrandbits(32)
-        self.version=ver
+        self.fname=fname # file name in which packet was seen
+        self.version=ver # TLS version from the 1st relevant packet we see
         self.start_time=stime # file-relative start time of session
         self.src=src # client IP (v4 or v6)
         self.sport=sport # client port
@@ -121,28 +123,28 @@ class TLSSession():
         else:
             raise ValueError('Bad boolean given to add_apdu')
 
-def sess_find(sessions,ver,ptime,src,sport,dst,dport):
+def sess_find(fname,sessions,ver,ptime,src,sport,dst,dport):
     for s in sessions:
-        if s.src==src and s.sport==sport and s.dst==dst and s.dport==dport:
+        if s.fname==fname and s.src==src and s.sport==sport and s.dst==dst and s.dport==dport:
             return s
-        elif s.src==dst and s.sport==dport and s.dst==src and s.dport==sport:
+        elif s.fname==fname and s.src==dst and s.sport==dport and s.dst==src and s.dport==sport:
             return s
     # otherwise make a new one
     # extend this set of know server ports sometime
     if dport=="443" or dport=="853" or dport=="993":
         #sys.stderr.write("New Session option 1: " + sport + "->" + dport + "\n") 
-        s=TLSSession(ver,ptime,src,sport,dst,dport)
+        s=TLSSession(fname,ver,ptime,src,sport,dst,dport)
         sessions.append(s)
         return s
     elif sport=="443" or sport=="853" or sport=="993":
         #sys.stderr.write("New Session option 2: " + sport + "->" + dport + "\n") 
-        s=TLSSession(ver,ptime,dst,dport,src,sport)
+        s=TLSSession(fname,ver,ptime,dst,dport,src,sport)
         sessions.append(s)
         return s
     else:
         # take 'em as they come
         #sys.stderr.write("New Session option 3: " + sport + "->" + dport + "\n") 
-        s=TLSSession(ver,ptime,src,sport,dst,dport)
+        s=TLSSession(fname,ver,ptime,src,sport,dst,dport)
         sessions.append(s)
         return s
 
@@ -187,7 +189,7 @@ for fname in flist:
                 ver=pkt.ssl.record_version
 
             # see if this is a known session or not
-            this_sess=sess_find(sessions,ver,pkt.sniff_time,src,sport,dst,dport)
+            this_sess=sess_find(fname,sessions,ver,pkt.sniff_time,src,sport,dst,dport)
 
             if hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="20":
                 # print("ChangeCipherSpec")
