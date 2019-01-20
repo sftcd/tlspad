@@ -22,9 +22,9 @@ the pcap files.
     - [functions.sh](functions.sh) has some bash utility stuff I tend to re-use
 - [TLSPacketSizes.py](TLSPacketSizes.py) does some simple per-session counts of TLS packet sizes in PCAP files 
     - Some bugginess still:
-        - exception from tshark crashing somehow
+        - exception from tshark crashing somehow for some input files
         - my code is mixing >1 session into 1 structure still
-        - but getting there:-)
+            - time going backwards it seems:-)
 
 ## Tools used
 
@@ -42,4 +42,17 @@ I tried:
   format but appears to have nothing for TLS, so didn't try that really
 - [pyshark](https://kiminewt.github.io/pyshark/) ... and made
   progress with that, so that's where we're at for now. 
+
+Next is to try anonymise the pcap files, in case I wanna publish something
+or someone else wants to. There's a [wireshark tools page](https://wiki.wireshark.org/Tools#Capture_file_anonymization),
+and a [caida page](https://www.caida.org/tools/taxonomy/anontaxonomy.xml) let's see what we find there. 
+At first glance, a lot of these don't appear to be well-maintained.
+
+- pktanon, has an apt install, let's see if that's good enough - nope - doesn't work
+with pcapng I guess as it barfs on line 0 of the 1st input tried:-)
+- [this page](https://isc.sans.edu/forums/diary/Truncating+Payloads+and+Anonymizing+PCAP+files/23990/) suggests
+downloading 2008 vintage code for ``TCPurify`` from the Internet archive and compiling! Well, I'll try anything once...
+    - compiles with some warnings and maybe works, but not sure it does what I want (sigh)
+    - will check some more later
+
 

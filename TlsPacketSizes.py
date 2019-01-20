@@ -103,7 +103,7 @@ class TLSSession():
         self.d_delays=[] # list of relative time offsets from session start
 
     def __str__(self):
-        return "ID: " + str(self.sess_id) + " V:" + ver + " time: " + str(self.start_time) + "from: " + self.fname + "\n" + \
+        return "ID: " + str(self.sess_id) + " V:" + ver + " time: " + str(self.start_time) + " file: " + self.fname + "\n" + \
                 "\t" + self.src + ":" + self.sport + "->" + self.dst + ":" + self.dport + \
                     " cert: " +  str(self.certsize) + " cv size: " + str(self.cvsize) + "\n" +  \
                 "\t" + "source packet sizes: " + str(self.s_psizes) + "\n"+ \
@@ -116,9 +116,15 @@ class TLSSession():
         msecs=tdiff.microseconds/1000
         if src==True:
             self.s_psizes.append(size)
+            slen=len(self.s_delays)
+            if slen>0 and self.s_delays[slen-1]>msecs:
+                print("Oddity: src going backwards in time to " + str(msecs) + " from " +str(self))
             self.s_delays.append(msecs)
         elif src==False:
             self.d_psizes.append(size)
+            dlen=len(self.d_delays)
+            if dlen>0 and self.d_delays[dlen-1]>msecs:
+                print("Oddity: dest going backwards in time to " + str(msecs) + " from "+str(self))
             self.d_delays.append(msecs)
         else:
             raise ValueError('Bad (non-boolean) given to add_apdu')
@@ -130,7 +136,7 @@ def sess_find(fname,sessions,ver,ptime,src,sport,dst,dport):
         elif s.fname==fname and s.src==dst and s.sport==dport and s.dst==src and s.dport==sport:
             return s
     # otherwise make a new one
-    # extend this set of know server ports sometime
+    # TODO: extend/parameterise this set of known server ports sometime
     if dport=="443" or dport=="853" or dport=="993":
         #sys.stderr.write("New Session option 1: " + sport + "->" + dport + "\n") 
         s=TLSSession(fname,ver,ptime,src,sport,dst,dport)
