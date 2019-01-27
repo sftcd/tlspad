@@ -74,6 +74,7 @@ class TLSSession():
             'fname',
             'version',
             'start_time',
+            'timestamp',
             'src',
             'sport',
             'dst',
@@ -86,11 +87,12 @@ class TLSSession():
             'd_delays'
             ]
 
-    def __init__(self,fname='',ver='',stime=0,src='',sport='',dst='',dport=''):
+    def __init__(self,fname='',ver='',stime=0,tstamp='0',src='',sport='',dst='',dport=''):
         self.sess_id=random.getrandbits(32)
         self.fname=fname # file name in which packet was seen
         self.version=ver # TLS version from the 1st relevant packet we see
         self.start_time=stime # file-relative start time of session
+        self.timestamp=float(tstamp) # file-relative start time of session
         self.src=src # client IP (v4 or v6)
         self.sport=sport # client port
         self.dst=dst  # server IP
@@ -103,33 +105,41 @@ class TLSSession():
         self.d_delays=[] # list of relative time offsets from session start
 
     def __str__(self):
-        return "ID: " + str(self.sess_id) + " V:" + ver + " time: " + str(self.start_time) + " file: " + self.fname + "\n" + \
+        return "ID: " + str(self.sess_id) + " V:" + ver + " time: " + str(self.start_time) + " tstamp: " + str(self.timestamp) + "\n" +  \
+                " file: " + self.fname + "\n" + \
                 "\t" + self.src + ":" + self.sport + "->" + self.dst + ":" + self.dport + \
                     " cert: " +  str(self.certsize) + " cv size: " + str(self.cvsize) + "\n" +  \
                 "\t" + "source packet sizes: " + str(self.s_psizes) + "\n"+ \
-                "\t" + "source packet times: " + str(self.s_delays) + "\n" + \
+                "\t" + "source packet times: " + str(["%.3f" % v for v in self.s_delays]) + "\n" + \
                 "\t" + "dest packet sizes: " + str(self.d_psizes) + "\n" + \
-                "\t" + "dest packet times: " + str(self.d_delays) 
+                "\t" + "dest packet times: " + str(["%.3f" % v for v in self.d_delays]) + "\n" 
 
-    def add_apdu(self,size,pkttime,src):
-        tdiff=pkttime-self.start_time
-        msecs=tdiff.microseconds/1000
+    def add_apdu(self,size,pkttime,pstamp,src):
+
+        # this way was broken, not sure why
+        #tdiff=pkttime-self.start_time
+        #msecs=tdiff.microseconds/1000
+
+        # this way works:-) str->float; subtract; then secs -> millisecs
+        #print ("type(pstamp): " + str(type(pstamp)) + " type(self.timestamp): " + str(type(self.timestamp)))
+        tdiff=float(pstamp)-self.timestamp
+        msecs=tdiff*1000
         if src==True:
             self.s_psizes.append(size)
             slen=len(self.s_delays)
             if slen>0 and self.s_delays[slen-1]>msecs:
-                print("Oddity: src going backwards in time to " + str(msecs) + " from " +str(self))
+                print("Oddity: src going backwards in time to " + str(msecs) + " from " + str(self) + " tstamp: " + str(pstamp))
             self.s_delays.append(msecs)
         elif src==False:
             self.d_psizes.append(size)
             dlen=len(self.d_delays)
             if dlen>0 and self.d_delays[dlen-1]>msecs:
-                print("Oddity: dest going backwards in time to " + str(msecs) + " from "+str(self))
+                print("Oddity: dest going backwards in time to " + str(msecs) + " from "+ str(self) + " tstamp: " + str(pstamp))
             self.d_delays.append(msecs)
         else:
             raise ValueError('Bad (non-boolean) given to add_apdu')
 
-def sess_find(fname,sessions,ver,ptime,src,sport,dst,dport):
+def sess_find(fname,sessions,ver,ptime,ptstamp,src,sport,dst,dport):
     for s in sessions:
         if s.fname==fname and s.src==src and s.sport==sport and s.dst==dst and s.dport==dport:
             return s
@@ -139,12 +149,12 @@ def sess_find(fname,sessions,ver,ptime,src,sport,dst,dport):
     # TODO: extend/parameterise this set of known server ports sometime
     if dport=="443" or dport=="853" or dport=="993":
         #sys.stderr.write("New Session option 1: " + sport + "->" + dport + "\n") 
-        s=TLSSession(fname,ver,ptime,src,sport,dst,dport)
+        s=TLSSession(fname,ver,ptime,ptstamp,src,sport,dst,dport)
         sessions.append(s)
         return s
     elif sport=="443" or sport=="853" or sport=="993":
         #sys.stderr.write("New Session option 2: " + sport + "->" + dport + "\n") 
-        s=TLSSession(fname,ver,ptime,dst,dport,src,sport)
+        s=TLSSession(fname,ver,ptime,ptstamp,dst,dport,src,sport)
         sessions.append(s)
         return s
     else:
@@ -195,7 +205,7 @@ for fname in flist:
                 ver=pkt.ssl.record_version
 
             # see if this is a known session or not
-            this_sess=sess_find(fname,sessions,ver,pkt.sniff_time,src,sport,dst,dport)
+            this_sess=sess_find(fname,sessions,ver,pkt.sniff_time,pkt.sniff_timestamp,src,sport,dst,dport)
 
             if hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="20":
                 # print("ChangeCipherSpec")
@@ -207,7 +217,7 @@ for fname in flist:
                 # handshake
                 if hasattr(pkt.ssl,'handshake_type'):
                     if pkt.ssl.handshake_type=="1":
-                        #print("ClientHello")
+                        #print("ClientHello for " + str(this_sess.sess_id))
                         pass
                     elif pkt.ssl.handshake_type=="2":
                         #print("ServerHello")
@@ -276,11 +286,11 @@ for fname in flist:
                     pass
             elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="23":
                 # application data, count it!
-                this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,(this_sess.src==src))
+                this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,pkt.sniff_timestamp,(this_sess.src==src))
             elif hasattr(pkt.ssl,'record_opaque_type') and pkt.ssl.record_opaque_type=="23":
                 # also application data, count it! why the diference I wonder?
                 if not hasattr(pkt.ssl,'change_cipher_spec'):
-                    this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,(this_sess.src==src))
+                    this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,pkt.sniff_timestamp,(this_sess.src==src))
                 else:
                     #print("CCS")
                     pass

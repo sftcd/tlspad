@@ -21,10 +21,8 @@ the pcap files.
 - [dumper.sh](dumper.sh) is a bash script that's a small wrapper on tshark or tcpdump
     - [functions.sh](functions.sh) has some bash utility stuff I tend to re-use
 - [TLSPacketSizes.py](TLSPacketSizes.py) does some simple per-session counts of TLS packet sizes in PCAP files 
-    - Some bugginess still:
-        - exception from tshark crashing somehow for some input files
-        - my code is mixing >1 session into 1 structure still
-            - time going backwards it seems:-)
+    - seems to match at least one ground truth case, more checks needed
+    - pyshark still now and then says tshark crashed
 
 ## Tools used
 
@@ -54,5 +52,8 @@ with pcapng I guess as it barfs on line 0 of the 1st input tried:-)
 downloading 2008 vintage code for ``TCPurify`` from the Internet archive and compiling! Well, I'll try anything once...
     - compiles with some warnings and maybe works, but not sure it does what I want (sigh)
     - will check some more later
+- That last had a comment pointing to [sirano](https://github.com/heia-fr/sirano)
+which seems to be a 2015 vintage python thing that might do the biz. Will check
+more later (as usual:-)
 
 
