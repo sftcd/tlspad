@@ -74,6 +74,7 @@ class TLSSession():
             'fname',
             'version',
             'start_time',
+            'end_time',
             'timestamp',
             'src',
             'sport',
@@ -81,6 +82,8 @@ class TLSSession():
             'dport',
             'certsize',
             'cvsize',
+            'chsize',
+            'shsize',
             's_psizes',
             's_delays',
             'd_psizes',
@@ -92,6 +95,7 @@ class TLSSession():
         self.fname=fname # file name in which packet was seen
         self.version=ver # TLS version from the 1st relevant packet we see
         self.start_time=stime # file-relative start time of session
+        self.end_time=0 # file-relative start time of session
         self.timestamp=float(tstamp) # file-relative start time of session
         self.src=src # client IP (v4 or v6)
         self.sport=sport # client port
@@ -99,16 +103,20 @@ class TLSSession():
         self.dport=dport # server port
         self.certsize=0 # cert size if seen in h/
         self.cvsize=0 # cert verify size if seen in h/s
+        self.chsize=0 # ClientHello size
+        self.shsize=0 # ServerHello size
         self.s_psizes=[] # list of APDU sizes from src, 0 is 1st, 1 2nd seen etc.
         self.s_delays=[] # list of relative time offsets from session start
         self.d_psizes=[] # list of APDU sizes from dst, 0 is 1st, 1 2nd seen etc.
         self.d_delays=[] # list of relative time offsets from session start
 
     def __str__(self):
-        return "ID: " + str(self.sess_id) + " V:" + ver + " time: " + str(self.start_time) + " tstamp: " + str(self.timestamp) + "\n" +  \
+        return "ID: " + str(self.sess_id) + " V:" + ver + "\n" + \
+                " started: " + str(self.start_time) + " ended: " + str(self.end_time) + " tstamp: " + str(self.timestamp) + "\n" +  \
                 " file: " + self.fname + "\n" + \
-                "\t" + self.src + ":" + self.sport + "->" + self.dst + ":" + self.dport + \
-                    " cert: " +  str(self.certsize) + " cv size: " + str(self.cvsize) + "\n" +  \
+                "\t" + self.src + ":" + self.sport + "->" + self.dst + ":" + self.dport + "\n" + \
+                "\t" + "CH size: " +  str(self.chsize) + " SH size: " + str(self.shsize) + "\n" +  \
+                "\t" + "Cert size: " +  str(self.certsize) + " CV size (proxy): " + str(self.cvsize) + "\n" +  \
                 "\t" + "source packet sizes: " + str(self.s_psizes) + "\n"+ \
                 "\t" + "source packet times: " + str(["%.3f" % v for v in self.s_delays]) + "\n" + \
                 "\t" + "dest packet sizes: " + str(self.d_psizes) + "\n" + \
@@ -138,6 +146,15 @@ class TLSSession():
             self.d_delays.append(msecs)
         else:
             raise ValueError('Bad (non-boolean) given to add_apdu')
+    
+    def note_chsize(self,cs):
+        self.chsize=cs
+
+    def note_shsize(self,ss):
+        self.shsize=ss
+
+    def note_end(self,pkttime):
+        self.end_time=pkttime
 
 def sess_find(fname,sessions,ver,ptime,ptstamp,src,sport,dst,dport):
     for s in sessions:
@@ -211,16 +228,22 @@ for fname in flist:
                 # print("ChangeCipherSpec")
                 pass
             elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="21":
-                # print("EncryptedAlert")
+                # TODO: if we get two of these, one from each side, that may be good reason to
+                # think that's the end of this TLS session, but maybe more checking is
+                # needed, we'll see...
+                # print("EncryptedAlert at " + str(pkt.sniff_time) + " for: " + str(this_sess))
+                this_sess.note_end(pkt.sniff_time)
                 pass
             elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="22":
                 # handshake
                 if hasattr(pkt.ssl,'handshake_type'):
                     if pkt.ssl.handshake_type=="1":
                         #print("ClientHello for " + str(this_sess.sess_id))
+                        this_sess.note_chsize(pkt.ssl.record_length)
                         pass
                     elif pkt.ssl.handshake_type=="2":
                         #print("ServerHello")
+                        this_sess.note_shsize(pkt.ssl.record_length)
                         pass
                     elif pkt.ssl.handshake_type=="4":
                         #print("NewSessionTicket")

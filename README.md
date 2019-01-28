@@ -22,7 +22,7 @@ the pcap files.
     - [functions.sh](functions.sh) has some bash utility stuff I tend to re-use
 - [TLSPacketSizes.py](TLSPacketSizes.py) does some simple per-session counts of TLS packet sizes in PCAP files 
     - seems to match at least one ground truth case, more checks needed
-    - pyshark still now and then says tshark crashed
+    - pyshark still now and then says tshark crashed, will just live with it for now
 
 ## Tools used
 
