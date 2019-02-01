@@ -157,10 +157,14 @@ class TLSSession():
         self.end_time=pkttime
 
 def sess_find(fname,sessions,ver,ptime,ptstamp,src,sport,dst,dport):
+    #print ("Checking for " + src + ":" + sport + " to/from " + dst + ":" + dport + "|")
     for s in sessions:
-        if s.fname==fname and s.src==src and s.sport==sport and s.dst==dst and s.dport==dport:
+        #print("Considering: " + str(s))
+        if s.fname==fname and s.src==dst and s.sport==dport and s.dst==src and s.dport==sport:
+            #print("Matched reverse")
             return s
-        elif s.fname==fname and s.src==dst and s.sport==dport and s.dst==src and s.dport==sport:
+        elif s.fname==fname and s.src==src and s.sport==sport and s.dst==dst and s.dport==dport:
+            #print("Matched forward")
             return s
     # otherwise make a new one
     # TODO: extend/parameterise this set of known server ports sometime
@@ -176,8 +180,8 @@ def sess_find(fname,sessions,ver,ptime,ptstamp,src,sport,dst,dport):
         return s
     else:
         # take 'em as they come
-        #sys.stderr.write("New Session option 3: " + sport + "->" + dport + "\n") 
-        s=TLSSession(fname,ver,ptime,src,sport,dst,dport)
+        s=TLSSession(fname,ver,ptime,ptstamp,src,sport,dst,dport)
+        #print("New Session option 3: " + sport + "->" + dport + "Session ID: " + str(s.sess_id))
         sessions.append(s)
         return s
 
@@ -309,11 +313,11 @@ for fname in flist:
                     pass
             elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="23":
                 # application data, count it!
-                this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,pkt.sniff_timestamp,(this_sess.src==src))
+                this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,pkt.sniff_timestamp,(this_sess.src==src and this_sess.sport==sport))
             elif hasattr(pkt.ssl,'record_opaque_type') and pkt.ssl.record_opaque_type=="23":
                 # also application data, count it! why the diference I wonder?
                 if not hasattr(pkt.ssl,'change_cipher_spec'):
-                    this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,pkt.sniff_timestamp,(this_sess.src==src))
+                    this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,pkt.sniff_timestamp,(this_sess.src==src and this_sess.sport==sport))
                 else:
                     #print("CCS")
                     pass

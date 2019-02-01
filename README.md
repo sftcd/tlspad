@@ -51,9 +51,10 @@ with pcapng I guess as it barfs on line 0 of the 1st input tried:-)
 - [this page](https://isc.sans.edu/forums/diary/Truncating+Payloads+and+Anonymizing+PCAP+files/23990/) suggests
 downloading 2008 vintage code for ``TCPurify`` from the Internet archive and compiling! Well, I'll try anything once...
     - compiles with some warnings and maybe works, but not sure it does what I want (sigh)
-    - will check some more later
+    - doesn't seem to handle IPv6
 - That last had a comment pointing to [sirano](https://github.com/heia-fr/sirano)
 which seems to be a 2015 vintage python thing that might do the biz. Will check
 more later (as usual:-)
+    - And no IPv6 that I can see (again, sigh, again;-()
 
 
