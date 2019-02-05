@@ -133,17 +133,17 @@ class TLSSession():
         tdiff=float(pstamp)-self.timestamp
         msecs=tdiff*1000
         if src==True:
-            self.s_psizes.append(size)
+            self.s_psizes.append(int(size))
             slen=len(self.s_delays)
             if slen>0 and self.s_delays[slen-1]>msecs:
                 print("Oddity: src going backwards in time to " + str(msecs) + " from " + str(self) + " tstamp: " + str(pstamp))
-            self.s_delays.append(msecs)
+            self.s_delays.append(float(msecs))
         elif src==False:
-            self.d_psizes.append(size)
+            self.d_psizes.append(int(size))
             dlen=len(self.d_delays)
             if dlen>0 and self.d_delays[dlen-1]>msecs:
                 print("Oddity: dest going backwards in time to " + str(msecs) + " from "+ str(self) + " tstamp: " + str(pstamp))
-            self.d_delays.append(msecs)
+            self.d_delays.append(float(msecs))
         else:
             raise ValueError('Bad (non-boolean) given to add_apdu')
     
