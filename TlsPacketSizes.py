@@ -37,9 +37,6 @@ argparser=argparse.ArgumentParser(description='Basic parse/print some pcaps')
 argparser.add_argument('-f','--file',     
                     dest='fodname',
                     help='PCAP file or direcftory name')
-argparser.add_argument('-s','--handshake-seen',     
-                    dest='fodname',
-                    help='Only start gathering stats after we see the h/s for this session')
 args=argparser.parse_args()
 
 if args.fodname is not None:
