@@ -59,11 +59,21 @@ def inject_sinewave(
 
     offset = int(start_time * (sample_rate /1000.0) )
 
-    for x in range(int(num_samples)):
-        ov=audio[x+offset]
-        nv=volume * math.sin(2 * math.pi * freq * ( x / sample_rate ))
-        audio[x+offset]= 0.5 * ov + 0.5 * nv
+    al=len(audio)
 
+    for x in range(int(num_samples)):
+        try:
+            ind=x+offset
+            if ind<al:
+                ov=audio[x+offset]
+                nv=volume * math.sin(2 * math.pi * freq * ( x / sample_rate ))
+                audio[x+offset]= 0.5 * ov + 0.5 * nv
+            else:
+                # we've filled to end, may as well return
+                return
+        except Exception as e:
+            print("Overflow: " + str(e) + " x: "  + str(x) + " offset: " + str(offset) + " len(audio): " + str(len(audio)))
+            #raise e
     return
 
 

@@ -329,7 +329,8 @@ for w in wav_arr:
     # disk instead of buffering it all in memory list this.  But most sounds will fit in 
     # memory.
     waudio = []
-    append_silence(audio=waudio,sample_rate=sample_freq,duration_milliseconds=w.overall_duration+1000)
+    # make space for required duration plus 2s
+    append_silence(audio=waudio,sample_rate=sample_freq,duration_milliseconds=w.overall_duration+2000)
     for note in w.notes:
         inject_sinewave(audio=waudio,sample_rate=sample_freq,freq=note[0],start_time=note[2],duration_milliseconds=note[1],volume=0.25)
     save_wav(w.fname+".wav",audio=waudio,sample_rate=sample_freq)
