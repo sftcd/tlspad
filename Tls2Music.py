@@ -79,6 +79,12 @@ lowest_note=30
 # highest note (Hz)
 highest_note=4000
 
+# midi output wanted
+domidi=True
+
+# wav output wanted
+dowav=False
+
 # hacky beeps
 from beeps import *
 
@@ -111,6 +117,9 @@ argparser.add_argument('-H','--high-note',
 argparser.add_argument('-i','--instrument',
                     type=int, dest='instrument',
                     help='midi instrument (0:127; default: 0)')
+argparser.add_argument('-w','--wav',
+                    help='beepy wav file output as well as midi',
+                    action='store_true')
 args=argparser.parse_args()
 
 if args.fodname is not None:
@@ -391,6 +400,7 @@ for w in the_arr:
 #   $ csvmidi <hash>.midi.csv <hash>.midi
 #   $ timidity <hash>.midi
 for w in the_arr:
+    print("Saving " + w.fname + ".midi.csv")
     # we'll just keep an array of strings with one line per and won't
     # bother making a python CSV structure
     midicsv=[]
@@ -426,23 +436,24 @@ for w in the_arr:
         f.close()
     del midicsv
     # table version
-    print(table)
+    # print(table)
     del table
 
 # write out .wav files, one per src ip
-for w in the_arr:
-    print("Saving " + w.fname + ".wav")
-    print(str(w))
+if args.wav:
+    for w in the_arr:
+        print("Saving " + w.fname + ".wav")
+        # print(str(w))
 
-    # Audio will contain a long list of samples (i.e. floating point numbers describing the
-    # waveform).  If you were working with a very long sound you'd want to stream this to
-    # disk instead of buffering it all in memory list this.  But most sounds will fit in 
-    # memory.
-    waudio = []
-    # make space for required duration plus 2s
-    append_silence(audio=waudio,sample_rate=sample_freq,duration_milliseconds=w.overall_duration+2000)
-    for note in w.notes:
-        inject_sinewave(audio=waudio,sample_rate=sample_freq,freq=note[0],start_time=note[2],duration_milliseconds=note[1],volume=0.25)
-    save_wav(w.fname+".wav",audio=waudio,sample_rate=sample_freq)
+        # Audio will contain a long list of samples (i.e. floating point numbers describing the
+        # waveform).  If you were working with a very long sound you'd want to stream this to
+        # disk instead of buffering it all in memory list this.  But most sounds will fit in 
+        # memory.
+        waudio = []
+        # make space for required duration plus 2s
+        append_silence(audio=waudio,sample_rate=sample_freq,duration_milliseconds=w.overall_duration+2000)
+        for note in w.notes:
+            inject_sinewave(audio=waudio,sample_rate=sample_freq,freq=note[0],start_time=note[2],duration_milliseconds=note[1],volume=0.25)
+        save_wav(w.fname+".wav",audio=waudio,sample_rate=sample_freq)
 
 
