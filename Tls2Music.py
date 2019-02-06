@@ -50,7 +50,7 @@
 # Might try use https://github.com/ttm/mass (via pip install music) and
 # see if it works or not...
 
-import traceback
+import traceback,math
 import os,sys,argparse,re,random,time
 import pyshark
 from TlsPadFncs import *
@@ -69,6 +69,9 @@ sample_freq=44100
 
 # min note length (ms)
 min_note_length=100
+
+# longest note TODO: make a command line argument (mabye)
+max_note_length=1000
 
 # lowest note (Hz)
 lowest_note=30
@@ -130,8 +133,11 @@ def size2freqdur(size,minsize,maxsize,c2s_direction,lowfreq,highfreq,bucketno,nb
         # top half of range is for svr->client
         bottomstep+=(frange/2)
         topstep+=(frange/2)
-    duration=min_note_length*size/minsize
     freq=topstep-size/minsize
+    # duration is min 100ms and max 1s and is distributed evenly according 
+    # to min and max pdu sizes
+    normalised=(size-minsize)/(maxsize-minsize)
+    duration=int(min_note_length+normalised*(max_note_length-min_note_length))
     return freq, duration
 
 # make list of file names to process
@@ -160,7 +166,7 @@ sessions=[]
 analyse_pcaps(flist,sessions)
 print("Found " + str(len(sessions)) + " sessions.\n")
 
-class wav_details():
+class the_details():
     '''
     Each .wav file will have these parameters, etc.
     '''
@@ -193,15 +199,17 @@ class wav_details():
         self.notes=[]
 
     def __str__(self):
-        return("Wav file: " + self.fname + " sessions: " + str(self.nsessions) + "\n" + \
+        return("Details for " + self.fname + ": sessions: " + str(self.nsessions) + "\n" + \
                 "\t" + "Start: " + str("%.02F"%self.earliest) + " End: " + str("%.02F"%self.latest) + " Dur: " + str("%.02f"%(self.overall_duration/1000)) + "\n" + \
                 "\t" + "Min PDU: " + str(self.min_pdu) + " Max PDU: " + str(self.max_pdu) + "\n" + \
-                "\t" + str(self.notes))
+                "\t" + "Notes: " + str(self.notes))
+
+                #"\t" + "Notes: " + str(len(self.notes)))
 
 
-def find_wav(wavs,ip):
+def find_details(wavs,ip):
     '''
-    search for wav_details mwith matching src IP
+    search for the_details mwith matching src IP
     '''
     for w in wavs:
         if w.src==ip:
@@ -229,26 +237,36 @@ def hash_name(key,fname,src):
     # we'll truncate as collisions aren't a deal for this
     return hmacval[0:15]
 
+def freq2num(freq):
+    '''
+    map a frequency in Hz to a midi note number
+    according to https://newt.phys.unsw.edu.au/jw/notes.html
+    we map this via:
+    midinum  =  12*log2(freq/440 Hz) + 69
+    '''
+    # TODO: check accuracy
+    return 12*int(math.log2(freq/440))+69
+
 # a per-run hmac secret, just used for file name hashing so not really sensitive
 hmac_secret=None
 
-# we'll keep a wav_detail for each
-wav_arr=[]
+# we'll keep a the_detail for each
+the_arr=[]
 # just for quick checking
 src_ips=[]
 
 for s in sessions:
-    w=find_wav(wav_arr,s.src)
+    w=find_details(the_arr,s.src)
     if w is None:
         wname=hash_name(hmac_secret,s.fname,s.src)
         src_ips.append(s.src)
         try:
             #print("Option1: " + str(s.end_time.timestamp()))
-            w=wav_details(wname,s.src,nsessions=1,earliest=s.timestamp,latest=s.end_time.timestamp())
+            w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp,latest=s.end_time.timestamp())
         except:
             #print("Option2: " + " val: " + str(s.end_time))
-            w=wav_details(wname,s.src,nsessions=1,earliest=s.timestamp)
-        wav_arr.append(w)
+            w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp)
+        the_arr.append(w)
     else:
         w.nsessions += 1
 
@@ -307,7 +325,7 @@ for s in sessions:
 
 # loop again through sessions to pick up PDU details
 for s in sessions:
-    w=find_wav(wav_arr,s.src)
+    w=find_details(the_arr,s.src)
     if w is None:
         raise ValueError('No wav for session: ' + s.sess_id)
     for i in range(0,len(s.s_psizes)):
@@ -319,8 +337,47 @@ for s in sessions:
     w.this_session += 1
 
 # sort notes timewise
-for w in wav_arr:
+for w in the_arr:
     w.notes=sorted(w.notes, key=itemgetter(2))
+
+# write out midicsv file, one per src ip
+# to play such:
+#   $ csvmidi <hash>.midi.csv <hash>.midi
+#   $ timidity <hash>.midi
+for w in the_arr:
+    # we'll just keep an array of strings with one line per and won't
+    # bother making a python CSV structure
+    midicsv=[]
+    # precursor
+    for note in w.notes:
+        notenum=freq2num(note[0])
+        ontime=int(note[1])
+        offtime=int(note[1]+note[2])
+        # odd structure here is so we can sort on time in a sec...
+        midicsv.append(["2,",ontime,",note_on_c,1,",notenum,",81"])
+        midicsv.append(["2,",offtime,",note_off_c,1,",notenum,",0"])
+    midicsv.sort(key=itemgetter(1))
+    with open(w.fname+".midi.csv","w") as f:
+        f.write('0, 0, Header, 1, 2, 480\n\
+1, 0, Start_track\n\
+1, 0, Title_t, "Tls2Music ' + w.fname + '"\n\
+1, 0, Text_t, "see https://github.com/sftcd/tlspad/"\n\
+1, 0, Copyright_t, "This file is in the public domain"\n\
+1, 0, Time_signature, 4, 2, 24, 8\n\
+1, 0, Tempo, 500000\n\
+1, 0, End_track\n\
+2, 0, Start_track\n\
+2, 0, Instrument_name_t, "Church Organ"\n\
+2, 0, Program_c, 1, 19\n')
+        for line in midicsv:
+            f.write(line[0]+str(line[1])+line[2]+str(line[3])+line[4]+"\n")
+        f.write('2, '+str(midicsv[-1][1])+', End_track\n\
+0, 0, End_of_file\n')
+        f.close()
+    del midicsv
+
+# write out .wav files, one per src ip
+for w in the_arr:
     print("Saving " + w.fname + ".wav")
     print(str(w))
 
