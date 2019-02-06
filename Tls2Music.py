@@ -23,7 +23,7 @@
 
 # Work-in-progress, may be abandonded but let's try and see...
 
-# Produce a set of .wav files from the TLS sessions seen in a pcap
+# Produce a set of .wav and .midi files from the TLS sessions seen in a pcap
 # Very much a first cut. And possibly useless, but let's see...
 
 # Goals:
@@ -70,7 +70,7 @@ sample_freq=44100
 # min note length (ms)
 min_note_length=100
 
-# longest note TODO: make a command line argument (mabye)
+# longest note 
 max_note_length=1000
 
 # lowest note (Hz)
@@ -82,23 +82,35 @@ highest_note=4000
 # hacky beeps
 from beeps import *
 
+# midi instrument number
+# there's a list at http://www.ccarh.org/courses/253/handout/gminstruments/
+# that list may be offset by 1, i.e. we start at 0
+instrumentnum=1 # piano
+#instrumentnum=19 # choral organ
+
 # command line arg handling 
 argparser=argparse.ArgumentParser(description='Turn some pcaps into music')
 argparser.add_argument('-f','--file',     
                     dest='fodname',
-                    help='PCAP file or direcftory name')
+                    help='PCAP file or directory name')
 argparser.add_argument('-F','--freq',
                     dest='freq',
                     help='Sample frequency (default: 44100Hz)')
 argparser.add_argument('-m','--min-note',
                     dest='min_note',
                     help='minumum note length (100ms)')
+argparser.add_argument('-M','--max-note',
+                    dest='max_note',
+                    help='maximum note length (1s)')
 argparser.add_argument('-L','--low-note',
                     dest='low_note',
                     help='lowest note (default: 30Hz)')
 argparser.add_argument('-H','--high-note',
                     dest='high_note',
                     help='highest note (default: 4000Hz)')
+argparser.add_argument('-i','--instrument',
+                    type=int, dest='instrument',
+                    help='midi instrument (0:127; default: 0)')
 args=argparser.parse_args()
 
 if args.fodname is not None:
@@ -112,6 +124,10 @@ if args.min_note is not None:
     # TODO: sanity check later
     min_note_length=args.min_note
 
+if args.max_note is not None:
+    # TODO: sanity check later
+    max_note_length=args.max_note
+
 if args.low_note is not None:
     # TODO: sanity check later
     lowest_note=args.low_note
@@ -119,6 +135,12 @@ if args.low_note is not None:
 if args.high_note is not None:
     # TODO: sanity check later
     highest_note=args.high_note
+
+if args.instrument is not None:
+    if args.instrument < 0 or args.instrument >127:
+        print("Error: instruments must be integers from 0 to 127")
+        sys.exit(1)
+    instrumentnum=args.instrument
 
 def size2freqdur(size,minsize,maxsize,c2s_direction,lowfreq,highfreq,bucketno,nbuckets):
     # map a (packet) size into a frequency and duration based on the low 
@@ -168,7 +190,7 @@ print("Found " + str(len(sessions)) + " sessions.\n")
 
 class the_details():
     '''
-    Each .wav file will have these parameters, etc.
+    Each .wav,.midi file etc will have these parameters
     '''
     __slots__ = [
             'fname',
@@ -202,10 +224,7 @@ class the_details():
         return("Details for " + self.fname + ": sessions: " + str(self.nsessions) + "\n" + \
                 "\t" + "Start: " + str("%.02F"%self.earliest) + " End: " + str("%.02F"%self.latest) + " Dur: " + str("%.02f"%(self.overall_duration/1000)) + "\n" + \
                 "\t" + "Min PDU: " + str(self.min_pdu) + " Max PDU: " + str(self.max_pdu) + "\n" + \
-                "\t" + "Notes: " + str(self.notes))
-
-                #"\t" + "Notes: " + str(len(self.notes)))
-
+                "\t" + "Notes:\n" + '\n'.join(' '.join(map(str,note)) for note in self.notes))
 
 def find_details(wavs,ip):
     '''
@@ -243,9 +262,36 @@ def freq2num(freq):
     according to https://newt.phys.unsw.edu.au/jw/notes.html
     we map this via:
     midinum  =  12*log2(freq/440 Hz) + 69
+    I checked the accuracy of this and it seems good based on
+    the map at the above URL
     '''
-    # TODO: check accuracy
-    return 12*int(math.log2(freq/440))+69
+    mnum=12*int(math.log2(freq/440))+69
+    #print("Mapped " + str(freq) + " to " + str(mnum))
+    return mnum
+
+def size2num(size,righthand,table):
+    '''
+    Map sizes to midikeys based on a table we build up from
+    sizes/keys used, with the right hand for c2s and the left
+    hand for s2c packets
+    '''
+    notemin=21
+    notemax=108
+    if size in table:
+        return table[size]
+    if len(table) == 0:
+        # initialise
+        if righthand:
+            table[size]=60 # middle-C
+        else:
+            table[size]=60 # B below middle-C
+    lowest=min(table.items(), key=lambda x: x[1])[1]
+    biggest=max(table.items(), key=lambda x: x[1])[1]
+    if righthand:
+        table[size]=biggest+1
+    else:
+        table[size]=lowest-1
+    return table[size]
 
 # a per-run hmac secret, just used for file name hashing so not really sensitive
 hmac_secret=None
@@ -330,10 +376,10 @@ for s in sessions:
         raise ValueError('No wav for session: ' + s.sess_id)
     for i in range(0,len(s.s_psizes)):
         freq,dur=size2freqdur(s.s_psizes[i],w.min_pdu,w.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
-        w.notes.append([freq,dur,s.s_delays[i],s.s_psizes[i]])
+        w.notes.append([freq,dur,s.s_delays[i],s.s_psizes[i],True])
     for i in range(0,len(s.d_psizes)):
         freq,dur=size2freqdur(s.d_psizes[i],w.min_pdu,w.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
-        w.notes.append([freq,dur,s.d_delays[i],s.d_psizes[i]])
+        w.notes.append([freq,dur,s.d_delays[i],s.d_psizes[i],False])
     w.this_session += 1
 
 # sort notes timewise
@@ -348,9 +394,13 @@ for w in the_arr:
     # we'll just keep an array of strings with one line per and won't
     # bother making a python CSV structure
     midicsv=[]
-    # precursor
+    # table version
+    table={}
     for note in w.notes:
-        notenum=freq2num(note[0])
+        # freq2note version
+        #notenum=freq2num(note[0])
+        # table version
+        notenum=size2num(note[3],note[4],table)
         ontime=int(note[1])
         offtime=int(note[1]+note[2])
         # odd structure here is so we can sort on time in a sec...
@@ -358,6 +408,7 @@ for w in the_arr:
         midicsv.append(["2,",offtime,",note_off_c,1,",notenum,",0"])
     midicsv.sort(key=itemgetter(1))
     with open(w.fname+".midi.csv","w") as f:
+        # precursor
         f.write('0, 0, Header, 1, 2, 480\n\
 1, 0, Start_track\n\
 1, 0, Title_t, "Tls2Music ' + w.fname + '"\n\
@@ -367,14 +418,16 @@ for w in the_arr:
 1, 0, Tempo, 500000\n\
 1, 0, End_track\n\
 2, 0, Start_track\n\
-2, 0, Instrument_name_t, "Church Organ"\n\
-2, 0, Program_c, 1, 19\n')
+2, 0, Program_c, 1, ' + str(instrumentnum) + '\n')
         for line in midicsv:
             f.write(line[0]+str(line[1])+line[2]+str(line[3])+line[4]+"\n")
         f.write('2, '+str(midicsv[-1][1])+', End_track\n\
 0, 0, End_of_file\n')
         f.close()
     del midicsv
+    # table version
+    print(table)
+    del table
 
 # write out .wav files, one per src ip
 for w in the_arr:

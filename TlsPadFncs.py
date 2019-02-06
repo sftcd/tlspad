@@ -28,42 +28,6 @@ import traceback
 import os,sys,argparse,re,random,time
 import pyshark
 
-# take file or directory name on command line, default to current dir
-fodname="."
-
-# command line arg handling 
-argparser=argparse.ArgumentParser(description='Basic parse/print some pcaps')
-argparser.add_argument('-f','--file',     
-                    dest='fodname',
-                    help='PCAP file or direcftory name')
-argparser.add_argument('-s','--handshake-seen',     
-                    dest='fodname',
-                    help='Only start gathering stats after we see the h/s for this session')
-args=argparser.parse_args()
-
-if args.fodname is not None:
-    fodname=args.fodname
-
-# make list of file names to process
-flist=set()
-# input string could be space sep list of file or directory names
-for onename in fodname.split():
-    # if onename is a directory get all '*.pcap[number]' file names therin
-    if os.path.isdir(onename):
-        pass
-        tfiles = [f for f in os.listdir(onename) if re.match(r'.*\.pcap[0-9]*', f)]
-        if len(tfiles)!=0:
-            for t in tfiles:
-                flist.add(onename+"/"+t)
-    else:
-        # if onename is not a directory add to list if file exists
-        if os.path.exists(onename):
-            flist.add(onename)
-
-if len(flist)==0:
-    print("No input files found - exiting")
-    sys.exit(1)
-
 # structures/function to handle (the bits wer care about from) a TLS session
 # given we may have large inputs, we wanna be less wasterful of memory
 # so we'll use classes for this
