@@ -24,8 +24,21 @@ the pcap files.
 - [TLSPacketSizes.py](TLSPacketSizes.py) does some simple per-session counts of TLS packet sizes in PCAP files 
     - seems to match at least one ground truth case, more checks needed
     - pyshark still now and then says tshark crashed, will just live with it for now
-- [Tls2Music.py](Tls2Music.py) takes the packets sizes/times and (will, when done), turn
-    those to sound
+- [Tls2Music.py](Tls2Music.py) takes the packets sizes/times and turns
+    those to sound, either a .midi or .wav file or both.
+    - I hacked the [midicsv](https://www.fourmilab.ch/webtools/midicsv/) output myself for now, but turns out there's 
+    a [py-midicsv](https://pypi.org/project/py-midicsv/) thing I should
+    check out. Not sure if it adds much.
+    - [musicalgorithms.org](http://musicalgorithms.org) (no https, sorry;-) has a 
+    similar idea and is nearly what I want, but a) it doesn't seem to incorporate
+    a packet timing analog, and b) it's too boring when packet sizes repeat a lot
+    - there's a python front-end called [purity](https://github.com/aalex/purity) for
+    [puredata](https://puredata.info/) that might be worth a look. (After I figure
+    out how to get Pd to work at all:-)
+    - [datadrivendj](https://datadrivendj.com/faq/) seems relevant; uses 
+     [Chuck](http://chuck.cs.princeton.edu/) (no https, sorry) - might be
+    worth a look, but maybe too complicated;-(
+- FIXME: this_session value is borked in 2nd and subsequent details structs
 
 ## Tools used
 

@@ -406,13 +406,13 @@ for s in sessions:
 for s in sessions:
     w=find_details(the_arr,s.src)
     if w is None:
-        raise ValueError('No wav for session: ' + s.sess_id)
+        raise ValueError('No details for session: ' + s.sess_id)
     for i in range(0,len(s.s_psizes)):
         freq,dur=size2freqdur(s.s_psizes[i],w.min_pdu,w.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
-        w.notes.append([freq,dur,s.s_delays[i],s.s_psizes[i],True])
+        w.notes.append([freq,dur,s.s_delays[i],s.s_psizes[i],True,w.this_session])
     for i in range(0,len(s.d_psizes)):
         freq,dur=size2freqdur(s.d_psizes[i],w.min_pdu,w.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
-        w.notes.append([freq,dur,s.d_delays[i],s.d_psizes[i],False])
+        w.notes.append([freq,dur,s.d_delays[i],s.d_psizes[i],False,w.this_session])
     w.this_session += 1
 
 # sort notes timewise
@@ -440,13 +440,14 @@ for w in the_arr:
         if note[2]<100:
             offtime+=100
         # odd structure here is so we can sort on time in a sec...
-        midicsv.append(["2,",ontime,",note_on_c,1,",notenum,",81"])
-        midicsv.append(["2,",offtime,",note_off_c,1,",notenum,",0"])
+        midicsv.append([note[5]+2,ontime,",note_on_c,",note[5]+1,notenum,",81"])
+        midicsv.append([note[5]+2,offtime,",note_off_c,",note[5]+1,notenum,",0"])
     midicsv.sort(key=itemgetter(1))
+    midicsv.sort(key=itemgetter(0))
     # TODO: maybe eliminate any silence > say 2s? shouldn't be hard with this str.
     with open(w.fname+".midi.csv","w") as f:
         # precursor
-        f.write('0, 0, Header, 1, 2, 480\n\
+        f.write('0, 0, Header, 1, '+str(w.nsessions+1)+', 480\n\
 1, 0, Start_track\n\
 1, 0, Title_t, "Tls2Music ' + w.fname + '"\n\
 1, 0, Text_t, "see https://github.com/sftcd/tlspad/"\n\
@@ -456,10 +457,18 @@ for w in the_arr:
 1, 0, End_track\n\
 2, 0, Start_track\n\
 2, 0, Program_c, 1, ' + str(instrumentnum) + '\n')
+        current_track=midicsv[0][0]
+        last_track_end=0
         for line in midicsv:
-            f.write(line[0]+str(line[1])+line[2]+str(line[3])+line[4]+"\n")
-        f.write('2, '+str(midicsv[-1][1])+', End_track\n\
-0, 0, End_of_file\n')
+            if line[0]!=current_track:
+                f.write(str(current_track)+', '+str(last_track_end)+', End_track\n')
+                current_track=line[0]
+                f.write(str(current_track)+', 0, Start_track\n')
+                f.write(str(current_track)+', 0, Program_c,'+str(current_track-1)+','+str(instrumentnum) + '\n')
+            last_track_end=line[1]
+            f.write(str(line[0])+","+str(line[1])+line[2]+str(line[3])+","+str(line[4])+line[5]+"\n")
+        f.write(str(current_track)+', '+str(last_track_end)+', End_track\n')
+        f.write('0, 0, End_of_file\n')
         f.close()
     del midicsv
     # table version
