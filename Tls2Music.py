@@ -89,7 +89,7 @@ dowav=False
 from beeps import *
 
 # midi instrument number
-# there's a list at http://www.ccarh.org/courses/253/handout/gminstruments/
+# there's a list at https://www.midi.org/specifications/item/gm-level-1-sound-set
 # that list may be offset by 1, i.e. we start at 0
 instrumentnum=1 # piano
 #instrumentnum=19 # choral organ
@@ -119,6 +119,9 @@ argparser.add_argument('-i','--instrument',
                     help='midi instrument (0:127; default: 0)')
 argparser.add_argument('-w','--wav',
                     help='beepy wav file output as well as midi',
+                    action='store_true')
+argparser.add_argument('-v','--verbose',
+                    help='produce more output',
                     action='store_true')
 args=argparser.parse_args()
 
@@ -167,7 +170,11 @@ def size2freqdur(size,minsize,maxsize,c2s_direction,lowfreq,highfreq,bucketno,nb
     freq=topstep-size/minsize
     # duration is min 100ms and max 1s and is distributed evenly according 
     # to min and max pdu sizes
-    normalised=(size-minsize)/(maxsize-minsize)
+    if maxsize-minsize == 0:
+        # likely not what's wanted but let's see...
+        normalised=size
+    else:
+        normalised=(size-minsize)/(maxsize-minsize)
     duration=int(min_note_length+normalised*(max_note_length-min_note_length))
     return freq, duration
 
@@ -190,12 +197,6 @@ for onename in fodname.split():
 if len(flist)==0:
     print("No input files found - exiting")
     sys.exit(1)
-
-# our array of TLS sessions
-sessions=[]
-
-analyse_pcaps(flist,sessions)
-print("Found " + str(len(sessions)) + " sessions.\n")
 
 class the_details():
     '''
@@ -296,11 +297,34 @@ def size2num(size,righthand,table):
             table[size]=60 # B below middle-C
     lowest=min(table.items(), key=lambda x: x[1])[1]
     biggest=max(table.items(), key=lambda x: x[1])[1]
+
+    low_num=freq2num(lowest_note)
+    high_num=freq2num(highest_note)
+    # work our way higher on right hand (c2s) and down
+    # the keyboard on left hand (s2c) but don't go
+    # past the last keys
     if righthand:
-        table[size]=biggest+1
+        if biggest < high_num: 
+            table[size]=biggest+1
+        else:
+            table[size]=high_num
     else:
-        table[size]=lowest-1
+        if lowest > low_num:
+            table[size]=lowest-1
+        else:
+            table[size]=low_num
     return table[size]
+
+# main line code...
+
+# our array of TLS sessions
+if args.verbose:
+    print("Reading pcaps...")
+    print(flist)
+sessions=[]
+analyse_pcaps(flist,sessions)
+if args.verbose:
+    print("Found " + str(len(sessions)) + " sessions.\n")
 
 # a per-run hmac secret, just used for file name hashing so not really sensitive
 hmac_secret=None
@@ -413,10 +437,13 @@ for w in the_arr:
         notenum=size2num(note[3],note[4],table)
         ontime=int(note[1])
         offtime=int(note[1]+note[2])
+        if note[2]<100:
+            offtime+=100
         # odd structure here is so we can sort on time in a sec...
         midicsv.append(["2,",ontime,",note_on_c,1,",notenum,",81"])
         midicsv.append(["2,",offtime,",note_off_c,1,",notenum,",0"])
     midicsv.sort(key=itemgetter(1))
+    # TODO: maybe eliminate any silence > say 2s? shouldn't be hard with this str.
     with open(w.fname+".midi.csv","w") as f:
         # precursor
         f.write('0, 0, Header, 1, 2, 480\n\
