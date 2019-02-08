@@ -61,6 +61,9 @@ import hmac,hashlib,base64
 # for sorting
 from operator import itemgetter
 
+# hacky beeps
+from beeps import *
+
 # take file or directory name on command line, default to current dir
 fodname="."
 
@@ -85,8 +88,44 @@ domidi=True
 # wav output wanted
 dowav=False
 
-# hacky beeps
-from beeps import *
+# label for output files
+label=None
+
+class the_details():
+    '''
+    Each .wav,.midi file etc will have these parameters
+    '''
+    __slots__ = [
+            'fname',
+            'src',
+            'nsessions',
+            'earliest',
+            'latest',
+            'overall_duration',
+            'min_pdu',
+            'max_pdu',
+            'this_session',
+            'notes'
+            ]
+    def __init__(self,fname,src,nsessions=0,earliest=0,latest=-1,overall_duration=0,min_pdu=sys.maxsize,max_pdu=0,this_session=0):
+        self.fname=fname
+        self.src=src
+        self.nsessions=nsessions
+        self.earliest=earliest
+        if latest is -1:
+            self.latest=earliest
+        else:
+            self.latest=latest
+        self.overall_duration=overall_duration
+        self.min_pdu=min_pdu
+        self.max_pdu=max_pdu
+        self.this_session=this_session
+        self.notes=[]
+    def __str__(self):
+        return("Details for " + self.fname + ": session: " + str(self.this_session) + " of " + str(self.nsessions) + "\n" + \
+                "\t" + "Start: " + str("%.02F"%self.earliest) + " End: " + str("%.02F"%self.latest) + " Dur: " + str("%.02f"%(self.overall_duration/1000)) + "\n" + \
+                "\t" + "Min PDU: " + str(self.min_pdu) + " Max PDU: " + str(self.max_pdu) + "\n" + \
+                "\t" + "Notes:\n" + '\n'.join(' '.join(map(str,note)) for note in self.notes))
 
 # midi instrument number
 # there's a list at https://www.midi.org/specifications/item/gm-level-1-sound-set
@@ -96,6 +135,9 @@ instrumentnum=1 # piano
 
 # command line arg handling 
 argparser=argparse.ArgumentParser(description='Turn some pcaps into music')
+argparser.add_argument('-l','--label',     
+                    dest='label',
+                    help='basename label for midi.csv and .wav output files')
 argparser.add_argument('-f','--file',     
                     dest='fodname',
                     help='PCAP file or directory name')
@@ -154,6 +196,9 @@ if args.instrument is not None:
         sys.exit(1)
     instrumentnum=args.instrument
 
+if args.label is not None:
+    label=args.label
+
 def size2freqdur(size,minsize,maxsize,c2s_direction,lowfreq,highfreq,bucketno,nbuckets):
     # map a (packet) size into a frequency and duration based on the low 
     # and high frequecies, the number of buckets (TLS sessions involving 
@@ -198,44 +243,6 @@ if len(flist)==0:
     print("No input files found - exiting")
     sys.exit(1)
 
-class the_details():
-    '''
-    Each .wav,.midi file etc will have these parameters
-    '''
-    __slots__ = [
-            'fname',
-            'src',
-            'nsessions',
-            'earliest',
-            'latest',
-            'overall_duration',
-            'min_pdu',
-            'max_pdu',
-            'this_session',
-            'notes'
-            ]
-
-    def __init__(self,fname,src,nsessions=0,earliest=0,latest=-1,overall_duration=0,min_pdu=sys.maxsize,max_pdu=0,this_session=0):
-        self.fname=fname
-        self.src=src
-        self.nsessions=nsessions
-        self.earliest=earliest
-        if latest is -1:
-            self.latest=earliest
-        else:
-            self.latest=latest
-        self.overall_duration=overall_duration
-        self.min_pdu=min_pdu
-        self.max_pdu=max_pdu
-        self.this_session=this_session
-        self.notes=[]
-
-    def __str__(self):
-        return("Details for " + self.fname + ": sessions: " + str(self.nsessions) + "\n" + \
-                "\t" + "Start: " + str("%.02F"%self.earliest) + " End: " + str("%.02F"%self.latest) + " Dur: " + str("%.02f"%(self.overall_duration/1000)) + "\n" + \
-                "\t" + "Min PDU: " + str(self.min_pdu) + " Max PDU: " + str(self.max_pdu) + "\n" + \
-                "\t" + "Notes:\n" + '\n'.join(' '.join(map(str,note)) for note in self.notes))
-
 def find_details(wavs,ip):
     '''
     search for the_details mwith matching src IP
@@ -253,12 +260,20 @@ def init_key():
 
 def hash_name(key,fname,src):
     '''
-    based on (first) pcap file name and src-ip and a per-run secret
+    outpuf file are either labelled or anonymised
+    - labels are like "<label>-src-ip.midi.csv", anonymised are...
+    - based on (first) pcap file name and src-ip and a per-run secret
     generate a wav file name - we do this as a privacy enhancement
     (but it absolutely needs other pcap anonymisation tools I've
     yet to find)
     '''
     # init secret once per run
+    if label is not None:
+        # ":" in file names spells trouble so zap 'em
+        # (they'll occur in IPv6 addresses)
+        psrc=src.replace(":","")
+        return label+"-"+psrc
+    # otherwise anonymise
     if key==None:
         key=init_key()
     m=fname+src
@@ -322,7 +337,7 @@ if args.verbose:
     print("Reading pcaps...")
     print(flist)
 sessions=[]
-analyse_pcaps(flist,sessions)
+analyse_pcaps(flist,sessions,args.verbose)
 if args.verbose:
     print("Found " + str(len(sessions)) + " sessions.\n")
 
@@ -409,15 +424,18 @@ for s in sessions:
         raise ValueError('No details for session: ' + s.sess_id)
     for i in range(0,len(s.s_psizes)):
         freq,dur=size2freqdur(s.s_psizes[i],w.min_pdu,w.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
-        w.notes.append([freq,dur,s.s_delays[i],s.s_psizes[i],True,w.this_session])
+        w.notes.append([freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,w.this_session])
     for i in range(0,len(s.d_psizes)):
         freq,dur=size2freqdur(s.d_psizes[i],w.min_pdu,w.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
-        w.notes.append([freq,dur,s.d_delays[i],s.d_psizes[i],False,w.this_session])
-    w.this_session += 1
+        w.notes.append([freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,w.this_session])
+    if len(s.s_psizes)>0 or len(s.d_psizes)>0:
+        # TODO: check real restrictions wrt midi limit on channels/sessions
+        w.this_session = (w.this_session + 1) % 16
 
 # sort notes timewise
 for w in the_arr:
     w.notes=sorted(w.notes, key=itemgetter(2))
+    #print(w)
 
 # write out midicsv file, one per src ip
 # to play such:
@@ -440,8 +458,8 @@ for w in the_arr:
         if note[2]<100:
             offtime+=100
         # odd structure here is so we can sort on time in a sec...
-        midicsv.append([note[5]+2,ontime,",note_on_c,",note[5]+1,notenum,",81"])
-        midicsv.append([note[5]+2,offtime,",note_off_c,",note[5]+1,notenum,",0"])
+        midicsv.append([note[5]+2,ontime,",note_on_c,",note[5],notenum,",81"])
+        midicsv.append([note[5]+2,offtime,",note_off_c,",note[5],notenum,",0"])
     midicsv.sort(key=itemgetter(1))
     midicsv.sort(key=itemgetter(0))
     # TODO: maybe eliminate any silence > say 2s? shouldn't be hard with this str.
@@ -456,7 +474,7 @@ for w in the_arr:
 1, 0, Tempo, 500000\n\
 1, 0, End_track\n\
 2, 0, Start_track\n\
-2, 0, Program_c, 1, ' + str(instrumentnum) + '\n')
+2, 0, Program_c, 0, ' + str(instrumentnum) + '\n')
         current_track=midicsv[0][0]
         last_track_end=0
         for line in midicsv:
@@ -464,7 +482,7 @@ for w in the_arr:
                 f.write(str(current_track)+', '+str(last_track_end)+', End_track\n')
                 current_track=line[0]
                 f.write(str(current_track)+', 0, Start_track\n')
-                f.write(str(current_track)+', 0, Program_c,'+str(current_track-1)+','+str(instrumentnum) + '\n')
+                f.write(str(current_track)+', 0, Program_c,'+str(current_track-2)+','+str(instrumentnum) + '\n')
             last_track_end=line[1]
             f.write(str(line[0])+","+str(line[1])+line[2]+str(line[3])+","+str(line[4])+line[5]+"\n")
         f.write(str(current_track)+', '+str(last_track_end)+', End_track\n')

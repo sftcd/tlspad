@@ -65,7 +65,7 @@ if len(flist)==0:
 # our array of TLS sessions
 sessions=[]
 
-analyse_pcaps(flist,sessions)
+analyse_pcaps(flist,sessions,False)
 print("Found " + str(len(sessions)) + " sessions.\n")
 for s in sessions:
     print(s)

@@ -149,152 +149,153 @@ def sess_find(fname,sessions,ver,ptime,ptstamp,src,sport,dst,dport):
         sessions.append(s)
         return s
 
-def analyse_pcaps(flist,sessions):
-	# iterate through each file, gathering our stats
-	for fname in flist:
-	    #print("Processing " + fname)
-	    try:
-	        f = pyshark.FileCapture(fname,display_filter='ssl')
-	        for pkt in f:
-	            src=""
-	            if 'ip' in pkt:
-	                src=pkt.ip.src
-	                dst=pkt.ip.dst
-	            elif 'ipv6' in pkt:
-	                src=pkt.ipv6.src
-	                dst=pkt.ipv6.dst
-	            else:
-	                sys.stderr.write("No sender!\n");
-	                sys.stderr.write(str(dir(pkt))+"\n")
-	                sys.stderr.write(str(pkt)+"\n")
-	                continue
-	            if 'tcp' in pkt:
-	                dport=pkt.tcp.dstport
-	                sport=pkt.tcp.srcport
-	            else:
-	                sys.stderr.write("Not a TCP packet!"+"\n")
-	                sys.stderr.write(str(dir(pkt))+"\n")
-	                sys.stderr.write(str(pkt)+"\n")
-	                continue
-	            if 'ssl' not in pkt:
-	                #print ("Skipping non SSL packet from " + src)
-	                continue
-	            if not (hasattr(pkt.ssl,'record_content_type') or hasattr(pkt.ssl,'record_opaque_type')):
-	                #print("Skipping SSL packet with nonsense content")
-	                continue
-	
-	            ver='unknown'
-	            if hasattr(pkt.ssl,'record_version'):
-	                ver=pkt.ssl.record_version
-	
-	            # see if this is a known session or not
-	            this_sess=sess_find(fname,sessions,ver,pkt.sniff_time,pkt.sniff_timestamp,src,sport,dst,dport)
-	
-	            if hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="20":
-	                # print("ChangeCipherSpec")
-	                pass
-	            elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="21":
-	                # TODO: if we get two of these, one from each side, that may be good reason to
-	                # think that's the end of this TLS session, but maybe more checking is
-	                # needed, we'll see...
-	                # print("EncryptedAlert at " + str(pkt.sniff_time) + " for: " + str(this_sess))
-	                this_sess.note_end(pkt.sniff_time)
-	                pass
-	            elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="22":
-	                # handshake
-	                if hasattr(pkt.ssl,'handshake_type'):
-	                    if pkt.ssl.handshake_type=="1":
-	                        #print("ClientHello for " + str(this_sess.sess_id))
-	                        this_sess.note_chsize(pkt.ssl.record_length)
-	                        pass
-	                    elif pkt.ssl.handshake_type=="2":
-	                        #print("ServerHello")
-	                        this_sess.note_shsize(pkt.ssl.record_length)
-	                        pass
-	                    elif pkt.ssl.handshake_type=="4":
-	                        #print("NewSessionTicket")
-	                        pass
-	                    elif pkt.ssl.handshake_type=="11":
-	                        #print("Certificate")
-	                        this_sess.certsize=pkt.ssl.record_length
-	                        # If RSA:
-	                        # Use the server cert modulus size as a proxy for what
-	                        # would be the size of a TLS1.3 CertificateVerify
-	                        # Modulus format here is of the form "00:aa:bb..."
-	                        # So we want to loose the colons (1/3 of length)
-	                        # then divide by 2 to get octets
-	                        # then add 10 which'd be the overhead for a TLS1.3 CertificateVerify
-	                        # So bottom line is divide by 3, then add 10
-	                        # and "//" is integer divide for python 3
-	                        if hasattr(pkt.ssl,'pkcs1_modulus'):
-	                            mlen=len(pkt.ssl.pkcs1_modulus)
-	                            mlen=(mlen//3)+10
-	                            if this_sess.cvsize==0:
-	                                this_sess.cvsize=mlen
-	                            else:
-	                                # Don't think this should happen, but who knows...
-	                                # If it does, better we know
-	                                sys.stderr.write("Re-setting cvsize for " + str(this_sess.sess_id) + \
-	                                    " from: " + str(this_sess.cvsize) + \
-	                                    " to: " + str(mlen) + "\n" )
-	                                this_sess.cvsize=mlen
-	                        elif hasattr(pkt.ssl,'pkcs1_ecparameters') and hasattr(pkt.ssl,'x509af_subjectpublickey'):
-	                            # same encoding as above
-	                            pklen=len(pkt.ssl.x509af_subjectpublickey)//3+10
-	                            this_sess.cvsize=pklen
-	                        else:
-	                            sys.stderr.write("No modulus or ECParameters for session: " + str(this_sess.sess_id)+ "\n")
-	                            sys.stderr.write(str(dir(pkt.ssl))+ "\n")
-	                            sys.stderr.write(str(pkt.ssl)+ "\n")
-	                    elif pkt.ssl.handshake_type=="12":
-	                        #print("ServerKeyExchange")
-	                        pass
-	                    elif pkt.ssl.handshake_type=="16":
-	                        #print("ClientKeyExchange")
-	                        pass
-	                    elif pkt.ssl.handshake_type=="15":
-	                        #print("CertificateVerify")
-	                        this_sess.cvsize=pkt.ssl.record_length
-	                        pass
-	                    elif pkt.ssl.handshake_type=="22":
-	                        #print("CertificateStatus")
-	                        pass
-	                    else:
-	                        sys.stderr.write("Handshake: " + pkt.ssl.handshake_type + "\n")
-	                        sys.stderr.write(src+":"+sport+"->"+dst+":"+dport + "\n")
-	                        sys.stderr.write(str(dir(pkt.ssl)) + "\n")
-	                        sys.stderr.write(str(pkt.ssl) + "\n")
-	                else:
-	                    # This should just be encrypted Finished messages in TLS1.2
-	                    # but can be others in TLS1.3 - we'll ignore 'em anyway
-	                    # (for now:-)
-	                    #sys.stderr.write("Weird Handsshake: " + "\n")
-	                    #sys.stderr.write(src+":"+sport+"->"+dst+":"+dport + "\n")
-	                    #sys.stderr.write(str(dir(pkt.ssl)) + "\n")
-	                    #sys.stderr.write(str(pkt.ssl) + "\n")
-	                    pass
-	            elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="23":
-	                # application data, count it!
-	                this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,pkt.sniff_timestamp,(this_sess.src==src and this_sess.sport==sport))
-	            elif hasattr(pkt.ssl,'record_opaque_type') and pkt.ssl.record_opaque_type=="23":
-	                # also application data, count it! why the diference I wonder?
-	                if not hasattr(pkt.ssl,'change_cipher_spec'):
-	                    this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,pkt.sniff_timestamp,(this_sess.src==src and this_sess.sport==sport))
-	                else:
-	                    #print("CCS")
-	                    pass
-	            elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="24":
-	                # print("Heartbeat!")
-	                pass
-	            else:
-	                sys.stderr.write("Unexpected Message: "  + str(this_sess.sess_id) + "\n")
-	                sys.stderr.write(str(dir(pkt.ssl))+"\n")
-	                sys.stderr.write(str(pkt.ssl)+"\n")
-	        f.close()
-	        # there's occasional (but possibly predictable, not sure) exceptions
-	        # from the bowels of tshark, maybe a little sleep with fix...
-	        # time.sleep(5) 
-	        # nope, didn't work
-	    except Exception as e:
-	        sys.stderr.write(str(traceback.format_exc()))
-	        sys.stderr.write("Exception: " + str(e) + "\n")
+def analyse_pcaps(flist,sessions,verbose):
+    # iterate through each file, gathering our stats
+    for fname in flist:
+        if verbose:
+            print("Processing " + fname)
+        try:
+            f = pyshark.FileCapture(fname,display_filter='ssl')
+            for pkt in f:
+                src=""
+                if 'ip' in pkt:
+                    src=pkt.ip.src
+                    dst=pkt.ip.dst
+                elif 'ipv6' in pkt:
+                    src=pkt.ipv6.src
+                    dst=pkt.ipv6.dst
+                else:
+                    sys.stderr.write("No sender!\n");
+                    sys.stderr.write(str(dir(pkt))+"\n")
+                    sys.stderr.write(str(pkt)+"\n")
+                    continue
+                if 'tcp' in pkt:
+                    dport=pkt.tcp.dstport
+                    sport=pkt.tcp.srcport
+                else:
+                    sys.stderr.write("Not a TCP packet!"+"\n")
+                    sys.stderr.write(str(dir(pkt))+"\n")
+                    sys.stderr.write(str(pkt)+"\n")
+                    continue
+                if 'ssl' not in pkt:
+                    #print ("Skipping non SSL packet from " + src)
+                    continue
+                if not (hasattr(pkt.ssl,'record_content_type') or hasattr(pkt.ssl,'record_opaque_type')):
+                    #print("Skipping SSL packet with nonsense content")
+                    continue
+    
+                ver='unknown'
+                if hasattr(pkt.ssl,'record_version'):
+                    ver=pkt.ssl.record_version
+    
+                # see if this is a known session or not
+                this_sess=sess_find(fname,sessions,ver,pkt.sniff_time,pkt.sniff_timestamp,src,sport,dst,dport)
+    
+                if hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="20":
+                    # print("ChangeCipherSpec")
+                    pass
+                elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="21":
+                    # TODO: if we get two of these, one from each side, that may be good reason to
+                    # think that's the end of this TLS session, but maybe more checking is
+                    # needed, we'll see...
+                    # print("EncryptedAlert at " + str(pkt.sniff_time) + " for: " + str(this_sess))
+                    this_sess.note_end(pkt.sniff_time)
+                    pass
+                elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="22":
+                    # handshake
+                    if hasattr(pkt.ssl,'handshake_type'):
+                        if pkt.ssl.handshake_type=="1":
+                            #print("ClientHello for " + str(this_sess.sess_id))
+                            this_sess.note_chsize(pkt.ssl.record_length)
+                            pass
+                        elif pkt.ssl.handshake_type=="2":
+                            #print("ServerHello")
+                            this_sess.note_shsize(pkt.ssl.record_length)
+                            pass
+                        elif pkt.ssl.handshake_type=="4":
+                            #print("NewSessionTicket")
+                            pass
+                        elif pkt.ssl.handshake_type=="11":
+                            #print("Certificate")
+                            this_sess.certsize=pkt.ssl.record_length
+                            # If RSA:
+                            # Use the server cert modulus size as a proxy for what
+                            # would be the size of a TLS1.3 CertificateVerify
+                            # Modulus format here is of the form "00:aa:bb..."
+                            # So we want to loose the colons (1/3 of length)
+                            # then divide by 2 to get octets
+                            # then add 10 which'd be the overhead for a TLS1.3 CertificateVerify
+                            # So bottom line is divide by 3, then add 10
+                            # and "//" is integer divide for python 3
+                            if hasattr(pkt.ssl,'pkcs1_modulus'):
+                                mlen=len(pkt.ssl.pkcs1_modulus)
+                                mlen=(mlen//3)+10
+                                if this_sess.cvsize==0:
+                                    this_sess.cvsize=mlen
+                                else:
+                                    # Don't think this should happen, but who knows...
+                                    # If it does, better we know
+                                    sys.stderr.write("Re-setting cvsize for " + str(this_sess.sess_id) + \
+                                        " from: " + str(this_sess.cvsize) + \
+                                        " to: " + str(mlen) + "\n" )
+                                    this_sess.cvsize=mlen
+                            elif hasattr(pkt.ssl,'pkcs1_ecparameters') and hasattr(pkt.ssl,'x509af_subjectpublickey'):
+                                # same encoding as above
+                                pklen=len(pkt.ssl.x509af_subjectpublickey)//3+10
+                                this_sess.cvsize=pklen
+                            else:
+                                sys.stderr.write("No modulus or ECParameters for session: " + str(this_sess.sess_id)+ "\n")
+                                sys.stderr.write(str(dir(pkt.ssl))+ "\n")
+                                sys.stderr.write(str(pkt.ssl)+ "\n")
+                        elif pkt.ssl.handshake_type=="12":
+                            #print("ServerKeyExchange")
+                            pass
+                        elif pkt.ssl.handshake_type=="16":
+                            #print("ClientKeyExchange")
+                            pass
+                        elif pkt.ssl.handshake_type=="15":
+                            #print("CertificateVerify")
+                            this_sess.cvsize=pkt.ssl.record_length
+                            pass
+                        elif pkt.ssl.handshake_type=="22":
+                            #print("CertificateStatus")
+                            pass
+                        else:
+                            sys.stderr.write("Handshake: " + pkt.ssl.handshake_type + "\n")
+                            sys.stderr.write(src+":"+sport+"->"+dst+":"+dport + "\n")
+                            sys.stderr.write(str(dir(pkt.ssl)) + "\n")
+                            sys.stderr.write(str(pkt.ssl) + "\n")
+                    else:
+                        # This should just be encrypted Finished messages in TLS1.2
+                        # but can be others in TLS1.3 - we'll ignore 'em anyway
+                        # (for now:-)
+                        #sys.stderr.write("Weird Handsshake: " + "\n")
+                        #sys.stderr.write(src+":"+sport+"->"+dst+":"+dport + "\n")
+                        #sys.stderr.write(str(dir(pkt.ssl)) + "\n")
+                        #sys.stderr.write(str(pkt.ssl) + "\n")
+                        pass
+                elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="23":
+                    # application data, count it!
+                    this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,pkt.sniff_timestamp,(this_sess.src==src and this_sess.sport==sport))
+                elif hasattr(pkt.ssl,'record_opaque_type') and pkt.ssl.record_opaque_type=="23":
+                    # also application data, count it! why the diference I wonder?
+                    if not hasattr(pkt.ssl,'change_cipher_spec'):
+                        this_sess.add_apdu(pkt.ssl.record_length,pkt.sniff_time,pkt.sniff_timestamp,(this_sess.src==src and this_sess.sport==sport))
+                    else:
+                        #print("CCS")
+                        pass
+                elif hasattr(pkt.ssl,'record_content_type') and pkt.ssl.record_content_type=="24":
+                    # print("Heartbeat!")
+                    pass
+                else:
+                    sys.stderr.write("Unexpected Message: "  + str(this_sess.sess_id) + "\n")
+                    sys.stderr.write(str(dir(pkt.ssl))+"\n")
+                    sys.stderr.write(str(pkt.ssl)+"\n")
+            f.close()
+            # there's occasional (but possibly predictable, not sure) exceptions
+            # from the bowels of tshark, maybe a little sleep with fix...
+            # time.sleep(5) 
+            # nope, didn't work
+        except Exception as e:
+            sys.stderr.write(str(traceback.format_exc()))
+            sys.stderr.write("Exception: " + str(e) + "\n")

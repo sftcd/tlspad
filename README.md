@@ -22,25 +22,17 @@ the pcap files.
     - [functions.sh](functions.sh) has some bash utility stuff I tend to re-use
 - [TlsPadFncs.py](TlsPadFncs.py) has classes and functions that are used by...
 - [TLSPacketSizes.py](TLSPacketSizes.py) does some simple per-session counts of TLS packet sizes in PCAP files 
-    - seems to match at least one ground truth case, more checks needed
     - pyshark still now and then says tshark crashed, will just live with it for now
 - [Tls2Music.py](Tls2Music.py) takes the packets sizes/times and turns
     those to sound, either a .midi or .wav file or both.
-    - I hacked the [midicsv](https://www.fourmilab.ch/webtools/midicsv/) output myself for now, but turns out there's 
-    a [py-midicsv](https://pypi.org/project/py-midicsv/) thing I should
-    check out. Not sure if it adds much.
-    - [musicalgorithms.org](http://musicalgorithms.org) (no https, sorry;-) has a 
-    similar idea and is nearly what I want, but a) it doesn't seem to incorporate
-    a packet timing analog, and b) it's too boring when packet sizes repeat a lot
-    - there's a python front-end called [purity](https://github.com/aalex/purity) for
-    [puredata](https://puredata.info/) that might be worth a look. (After I figure
-    out how to get Pd to work at all:-)
-    - [datadrivendj](https://datadrivendj.com/faq/) seems relevant; uses 
-     [Chuck](http://chuck.cs.princeton.edu/) (no https, sorry) - might be
-    worth a look, but maybe too complicated;-(
-- FIXME: this_session value is borked in 2nd and subsequent details structs
+- [composer.sh](composer.sh) is the start of a wrapper for all of the above
 
 ## Tools used
+
+Notes made while figuring out what to use. These aren't really organised, but
+are just so's I can go back to something later if I wanna.
+
+## General pcap processing
 
 I spent a little time looking at tooling to extract things from the pcap files.
 There are many tools, but nothing so far that's exactly what I want. 
@@ -56,6 +48,8 @@ I tried:
   format but appears to have nothing for TLS, so didn't try that really
 - [pyshark](https://kiminewt.github.io/pyshark/) ... and made
   progress with that, so that's where we're at for now. 
+
+## pcap anonymisation
 
 Next is to try anonymise the pcap files, in case I wanna publish something
 or someone else wants to. There's a [wireshark tools page](https://wiki.wireshark.org/Tools#Capture_file_anonymization),
@@ -73,4 +67,19 @@ which seems to be a 2015 vintage python thing that might do the biz. Will check
 more later (as usual:-)
     - And no IPv6 that I can see (again, sigh, again;-()
 
+## Musical stuff
 
+Things I looked at, in less or lesser detail...
+
+    - I hacked the [midicsv](https://www.fourmilab.ch/webtools/midicsv/) output myself for now, but turns out there's 
+    a [py-midicsv](https://pypi.org/project/py-midicsv/) thing I should
+    check out. Not sure if it adds much.
+    - [musicalgorithms.org](http://musicalgorithms.org) (no https, sorry;-) has a 
+    similar idea and is nearly what I want, but a) it doesn't seem to incorporate
+    a packet timing analog, and b) it's too boring when packet sizes repeat a lot
+    - there's a python front-end called [purity](https://github.com/aalex/purity) for
+    [puredata](https://puredata.info/) that might be worth a look. (After I figure
+    out how to get Pd to work at all:-)
+    - [datadrivendj](https://datadrivendj.com/faq/) seems relevant; uses 
+     [Chuck](http://chuck.cs.princeton.edu/) (no https, sorry) - might be
+    worth a look, but maybe too complicated;-(
