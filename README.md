@@ -25,6 +25,12 @@ the pcap files.
     - pyshark still now and then says tshark crashed, will just live with it for now
 - [Tls2Music.py](Tls2Music.py) takes the packets sizes/times and turns
     those to sound, either a .midi or .wav file or both.
+    - that sorta seems to work, state is I need to check accuracy (it's suspect:-)
+    - coupla TODOs likely really needed: 
+        - silence supression is e.g. >2s or something
+        - re-hit keys, move up/down one if a key/tone is playing now or
+        otherwise avoid collisions (but pianos only have 88 keys so we
+        can't avoid all, in general)
 - [composer.sh](composer.sh) is the start of a wrapper for all of the above
 
 ## Tools used
@@ -71,15 +77,15 @@ more later (as usual:-)
 
 Things I looked at, in less or lesser detail...
 
-    - I hacked the [midicsv](https://www.fourmilab.ch/webtools/midicsv/) output myself for now, but turns out there's 
+- I hacked the [midicsv](https://www.fourmilab.ch/webtools/midicsv/) output myself for now, but turns out there's 
     a [py-midicsv](https://pypi.org/project/py-midicsv/) thing I should
     check out. Not sure if it adds much.
-    - [musicalgorithms.org](http://musicalgorithms.org) (no https, sorry;-) has a 
+- [musicalgorithms.org](http://musicalgorithms.org) (no https, sorry;-) has a 
     similar idea and is nearly what I want, but a) it doesn't seem to incorporate
     a packet timing analog, and b) it's too boring when packet sizes repeat a lot
     - there's a python front-end called [purity](https://github.com/aalex/purity) for
     [puredata](https://puredata.info/) that might be worth a look. (After I figure
     out how to get Pd to work at all:-)
-    - [datadrivendj](https://datadrivendj.com/faq/) seems relevant; uses 
+- [datadrivendj](https://datadrivendj.com/faq/) seems relevant; uses 
      [Chuck](http://chuck.cs.princeton.edu/) (no https, sorry) - might be
     worth a look, but maybe too complicated;-(

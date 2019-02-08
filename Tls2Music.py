@@ -340,6 +340,8 @@ sessions=[]
 analyse_pcaps(flist,sessions,args.verbose)
 if args.verbose:
     print("Found " + str(len(sessions)) + " sessions.\n")
+    for s in sessions:
+        print(str(s))
 
 # a per-run hmac secret, just used for file name hashing so not really sensitive
 hmac_secret=None
@@ -429,20 +431,25 @@ for s in sessions:
         freq,dur=size2freqdur(s.d_psizes[i],w.min_pdu,w.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
         w.notes.append([freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,w.this_session])
     if len(s.s_psizes)>0 or len(s.d_psizes)>0:
-        # TODO: check real restrictions wrt midi limit on channels/sessions
+        # midi limit on channels/sessions seems to be max 16 is reliable
+        # so we'll re-use and hope for the best if we have >16 TLS sessions 
+        # per src IP in a pcap
+        if verbose:
+            print("Warning: >16 TLS sessions in one midi file for " + s.src)
         w.this_session = (w.this_session + 1) % 16
 
 # sort notes timewise
 for w in the_arr:
     w.notes=sorted(w.notes, key=itemgetter(2))
-    #print(w)
+    print(w)
 
 # write out midicsv file, one per src ip
 # to play such:
 #   $ csvmidi <hash>.midi.csv <hash>.midi
 #   $ timidity <hash>.midi
 for w in the_arr:
-    print("Saving " + w.fname + ".midi.csv")
+    if verbose:
+        print("Saving " + w.fname + ".midi.csv")
     # we'll just keep an array of strings with one line per and won't
     # bother making a python CSV structure
     midicsv=[]
@@ -462,7 +469,13 @@ for w in the_arr:
         midicsv.append([note[5]+2,offtime,",note_off_c,",note[5],notenum,",0"])
     midicsv.sort(key=itemgetter(1))
     midicsv.sort(key=itemgetter(0))
+
     # TODO: maybe eliminate any silence > say 2s? shouldn't be hard with this str.
+
+    # TODO: eliminate cases where the same note is hit whilst still on by moving up one
+    # go through notes array, note who's turned on/off when, then if an on-note is to
+    # be hit, try one up or down until we find a note that's off - then hit that
+
     with open(w.fname+".midi.csv","w") as f:
         # precursor
         f.write('0, 0, Header, 1, '+str(w.nsessions+1)+', 480\n\
@@ -496,8 +509,9 @@ for w in the_arr:
 # write out .wav files, one per src ip
 if args.wav:
     for w in the_arr:
-        print("Saving " + w.fname + ".wav")
-        # print(str(w))
+        if verbose:
+            print("Saving " + w.fname + ".wav")
+            # print(str(w))
 
         # Audio will contain a long list of samples (i.e. floating point numbers describing the
         # waveform).  If you were working with a very long sound you'd want to stream this to
