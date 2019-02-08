@@ -434,7 +434,7 @@ for s in sessions:
         # midi limit on channels/sessions seems to be max 16 is reliable
         # so we'll re-use and hope for the best if we have >16 TLS sessions 
         # per src IP in a pcap
-        if verbose:
+        if args.verbose:
             print("Warning: >16 TLS sessions in one midi file for " + s.src)
         w.this_session = (w.this_session + 1) % 16
 
@@ -448,7 +448,7 @@ for w in the_arr:
 #   $ csvmidi <hash>.midi.csv <hash>.midi
 #   $ timidity <hash>.midi
 for w in the_arr:
-    if verbose:
+    if args.verbose:
         print("Saving " + w.fname + ".midi.csv")
     # we'll just keep an array of strings with one line per and won't
     # bother making a python CSV structure
@@ -509,7 +509,7 @@ for w in the_arr:
 # write out .wav files, one per src ip
 if args.wav:
     for w in the_arr:
-        if verbose:
+        if args.verbose:
             print("Saving " + w.fname + ".wav")
             # print(str(w))
 
