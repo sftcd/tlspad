@@ -32,13 +32,14 @@ SRCDIR=$HOME/code/tlspad
 
 function usage()
 {
-	echo "$0 [-f <capture-file/dir>] [-l <label>] [-wvc]"
+	echo "$0 [-f <capture-file/dir>] [-l <label>] [-wvcL]"
     echo ""
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
     echo "-f - name of capture file or directory for capture files (default is '.')"
     echo "-l - label to use for files (will be anonymous hash otherwise)"
     echo "-c - clean out audio files in this directory (*.midi.csv, *.wav, *.midi)"
+    echo "-L - use logarithmic time"
     echo "-v - be verbose"
     echo "-w - produce .wav files as well as .mimd (warning: slow, maybe buggy)"
 	exit 99
@@ -52,9 +53,11 @@ WAVOUT=""
 LABEL=""
 CLEAN="no"
 SKIP="no"
+JUSTCLEAN="yes"
+LOGTIME=""
 
 # options may be followed by one colon to indicate they have a required argument
-if ! options=$(getopt -s bash -o schwvf:l: -l skip,clean,help,wav,verbose,file:,label: -- "$@")
+if ! options=$(getopt -s bash -o Lschwvf:l: -l logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
 then
 	# something went wrong, getopt will put out an error message for us
 	exit 1
@@ -65,11 +68,12 @@ while [ $# -gt 0 ]
 do
 	case "$1" in
 		-h|--help) usage;;
-        -f|--file) OFILE=$2; shift;;
-        -l|--label) LABEL=" -l $2"; shift;;
+        -f|--file) JUSTCLEAN="no"; OFILE=$2; shift;;
+        -l|--label) JUSTCLEAN="no"; LABEL=" -l $2"; shift;;
         -s|--skip) SKIP="yes";;
         -c|--clean) CLEAN="yes";;
-        -w|--wav) WAVOUT=" -w ";;
+        -w|--wav) JUSTCLEAN="no"; WAVOUT=" -w ";;
+        -L|--logtime) JUSTCLEAN="no"; LOGTIME=" -T ";;
         -v|--verbose) VERBOSE=" -v ";;
 		(--) shift; break;;
 		(-*) echo "$0: error - unrecognized option $1" 1>&2; exit 1;;
@@ -87,13 +91,17 @@ done
 if [[ "$CLEAN" == "yes" ]]
 then
     rm -f *.midi.csv *.midi *.wav
-    exit 0
+    if [[ "$JUSTCLEAN" == "yes" ]]
+    then
+        echo "Just cleaning - exiting"
+        exit 0
+    fi
 fi
 
 # Do the analysis to generate the csvmidi files (and optonal .wavs)
 if [[ "$SKIP" == "no" ]]
 then
-    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT
+    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME
 fi
 
 # TODO: finer grained control of which csvs to (re-)map to midis

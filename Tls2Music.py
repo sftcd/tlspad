@@ -165,6 +165,9 @@ argparser.add_argument('-w','--wav',
 argparser.add_argument('-v','--verbose',
                     help='produce more output',
                     action='store_true')
+argparser.add_argument('-T','--logtime',     
+                    help='use logarithmic time',
+                    action='store_true')
 args=argparser.parse_args()
 
 if args.fodname is not None:
@@ -267,19 +270,24 @@ def hash_name(key,fname,src):
     (but it absolutely needs other pcap anonymisation tools I've
     yet to find)
     '''
+    # otherwise anonymise
+    if key==None:
+        key=init_key()
+    rv=""
     # init secret once per run
     if label is not None:
         # ":" in file names spells trouble so zap 'em
         # (they'll occur in IPv6 addresses)
         psrc=src.replace(":","")
-        return label+"-"+psrc
-    # otherwise anonymise
-    if key==None:
-        key=init_key()
-    m=fname+src
-    hmacval = hmac.new(key, msg=m.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
-    # we'll truncate as collisions aren't a deal for this
-    return hmacval[0:15]
+        rv=label+"-"+psrc
+    else:
+        m=fname+src
+        hmacval = hmac.new(key, msg=m.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
+        # we'll truncate as collisions aren't a deal for this
+        rv=hmacval[0:15]
+    if args.logtime:
+        rv+="-log"
+    return rv
 
 def freq2num(freq):
     '''
@@ -460,15 +468,35 @@ for w in the_arr:
         #notenum=freq2num(note[0])
         # table version
         notenum=size2num(note[3],note[4],table)
-        ontime=int(note[1])
+        # TODO: test out logarithmic time
+        ontime=int(note[2])
         offtime=int(note[1]+note[2])
-        if note[2]<100:
-            offtime+=100
+        if args.logtime:
+            try:
+                if note[2]==0:
+                    # can happen!
+                    ontime=0
+                else:
+                    # add a millisecond to avoid negative logs
+                    ontime=int(100*math.log(1+note[2]))
+                if note[1]+note[2]==0:
+                    # shouldn't happen really 
+                    print("ouch2! processing " + w.fname)
+                    print(str(w))
+                    sys.exit(1)
+                else:
+                    # add a millisecond to avoid negative logs
+                    offtime=int(100*math.log(1+note[1]+note[2]))
+            except Exception as e:
+                print("ouch! processing " + w.fname)
+                print(str(w))
+                sys.exit(1)
         # odd structure here is so we can sort on time in a sec...
         midicsv.append([note[5]+2,ontime,",note_on_c,",note[5],notenum,",81"])
         midicsv.append([note[5]+2,offtime,",note_off_c,",note[5],notenum,",0"])
     midicsv.sort(key=itemgetter(1))
     midicsv.sort(key=itemgetter(0))
+
 
     # TODO: maybe eliminate any silence > say 2s? shouldn't be hard with this str.
 
