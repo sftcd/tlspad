@@ -16,6 +16,17 @@ initial work relates to a [measurement script](dumper.sh) to capture some
 packets. Once I have some of those, I'll figure out how I want to analyse
 the pcap files.
 
+## The argument...
+
+The argument is actually fairly simple:
+- if we map packet size/timing to music in a regular/predictable manner, and,
+- if a user can recognise the difference between site sounds (an unknown!), then
+- if either side wants to benefit from ESNI, 
+- ... they both need to pad more/better than just ESNI  
+
+Note: we do not yet have evidence that sites do/don't sound different 
+enough for human ears to pick that up. Be fun to find out though!
+
 ## Tools here
 
 - [dumper.sh](dumper.sh) is a bash script that's a small wrapper on tshark or tcpdump
