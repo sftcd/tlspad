@@ -343,22 +343,28 @@ def size2num(size,righthand,table):
 
 def killsilence(array, mingap):
     '''
-    array has notes ([2]==ontime
+    array has notes:
         [track,on/off-time,on/off-string,channel,notenum,",81"]
-    we want to eliminate any silence >limit ms long by
-    removing the time for such 
-    we won't quite do that yet, but we'll start by zapping any
-    time gaps > limit regardless of whather those are silent
-    or noisy
+    - we want to eliminate any no-change periods >limit ms long by
+    reducing the times accordingly
+    - that zaps both silences and over-long notes, but good enough
     '''
     time2remove=0
     lasttime=0
     for note in array:
-        thistime=note[1]
-        if (lasttime+mingap)<thistime:
-            time2remove+=thistime-(laston+mingap)
-        lasttime=note[1]
         note[1]-=time2remove
+        #print("outer: note: " + str(note) + " lasttime: " + str(lasttime) + " mingap: " + str(mingap) + " ttr:" + str(time2remove))
+        wasinner=False
+        while (lasttime+mingap)<note[1]:
+            note[1]-=mingap
+            time2remove+=mingap
+            #print("inner: note: " + str(note) + " lasttime: " + str(lasttime) + " mingap: " + str(mingap) + " ttr:" + str(time2remove))
+            wasinner=True
+
+        lasttime=note[1]
+        if wasinner:
+            #print("innerX note: " + str(note) + " lasttime: " + str(lasttime) + " mingap: " + str(mingap) + " ttr:" + str(time2remove))
+            pass
     return
 
 

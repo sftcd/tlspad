@@ -32,13 +32,13 @@ SRCDIR=$HOME/code/tlspad
 
 function usage()
 {
-	echo "$0 [-f <capture-file/dir>] [-l <label>] [-S limit][-wvcL]"
+	echo "$0 [-f <capture-file/dir>] [-l <label>] [-S limit] [-wvcL]"
     echo ""
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
     echo "-f - name of capture file or directory for capture files (default is '.')"
     echo "-l - label to use for files (will be anonymous hash otherwise)"
-    echo "-S - suppress (at least) silence or noise that doesn't change for the specified limit (in ms)"
+    echo "-S - suppress silence or noise that doesn't change for the specified limit (in ms)"
     echo "-c - clean out audio files in this directory (*.midi.csv, *.wav, *.midi)"
     echo "-L - use logarithmic time"
     echo "-v - be verbose"
@@ -55,11 +55,15 @@ LABEL=""
 CLEAN="no"
 SKIP="no"
 JUSTCLEAN="yes"
-LOGTIME=""
-SUPPRESS=""
+# default to log time on and 1s suppression as it seems to work nicely
+LOGTIME=" -L "
+SUPPRESS=" -S 1000 "
+# empty strings will turn 'em off
+# LOGTIME=""
+# SUPPRESS=""
 
 # options may be followed by one colon to indicate they have a required argument
-if ! options=$(getopt -s bash -o Lschwvf:l: -l logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
+if ! options=$(getopt -s bash -o S:Lschwvf:l: -l suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
 then
 	# something went wrong, getopt will put out an error message for us
 	exit 1
@@ -71,7 +75,7 @@ do
 	case "$1" in
 		-h|--help) usage;;
         -f|--file) JUSTCLEAN="no"; OFILE=$2; shift;;
-        -S|--suppress) JUSTCLEAN="no"; SUPPRESS="-S $2"; shift;;
+        -S|--suppress) JUSTCLEAN="no"; SUPPRESS="-s $2"; shift;;
         -l|--label) JUSTCLEAN="no"; LABEL=" -l $2"; shift;;
         -s|--skip) SKIP="yes";;
         -c|--clean) CLEAN="yes";;
@@ -124,6 +128,6 @@ then
         fi
     done
 else
-    echo "No csvs to process - existing"
+    echo "No csvs to process - exiting"
 fi
 
