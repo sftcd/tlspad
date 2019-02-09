@@ -32,12 +32,13 @@ SRCDIR=$HOME/code/tlspad
 
 function usage()
 {
-	echo "$0 [-f <capture-file/dir>] [-l <label>] [-wvcL]"
+	echo "$0 [-f <capture-file/dir>] [-l <label>] [-S limit][-wvcL]"
     echo ""
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
     echo "-f - name of capture file or directory for capture files (default is '.')"
     echo "-l - label to use for files (will be anonymous hash otherwise)"
+    echo "-S - suppress (at least) silence or noise that doesn't change for the specified limit (in ms)"
     echo "-c - clean out audio files in this directory (*.midi.csv, *.wav, *.midi)"
     echo "-L - use logarithmic time"
     echo "-v - be verbose"
@@ -55,6 +56,7 @@ CLEAN="no"
 SKIP="no"
 JUSTCLEAN="yes"
 LOGTIME=""
+SUPPRESS=""
 
 # options may be followed by one colon to indicate they have a required argument
 if ! options=$(getopt -s bash -o Lschwvf:l: -l logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
@@ -69,6 +71,7 @@ do
 	case "$1" in
 		-h|--help) usage;;
         -f|--file) JUSTCLEAN="no"; OFILE=$2; shift;;
+        -S|--suppress) JUSTCLEAN="no"; SUPPRESS="-S $2"; shift;;
         -l|--label) JUSTCLEAN="no"; LABEL=" -l $2"; shift;;
         -s|--skip) SKIP="yes";;
         -c|--clean) CLEAN="yes";;
@@ -101,7 +104,7 @@ fi
 # Do the analysis to generate the csvmidi files (and optonal .wavs)
 if [[ "$SKIP" == "no" ]]
 then
-    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME
+    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS
 fi
 
 # TODO: finer grained control of which csvs to (re-)map to midis

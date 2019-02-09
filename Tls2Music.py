@@ -168,6 +168,9 @@ argparser.add_argument('-v','--verbose',
 argparser.add_argument('-T','--logtime',     
                     help='use logarithmic time',
                     action='store_true')
+argparser.add_argument('-s','--suppress-silence',     
+                    type=int, dest='suppress_silence',
+                    help='suppress <num> ms of no-change (not really silence but good enough')
 args=argparser.parse_args()
 
 if args.fodname is not None:
@@ -338,6 +341,27 @@ def size2num(size,righthand,table):
             table[size]=low_num
     return table[size]
 
+def killsilence(array, mingap):
+    '''
+    array has notes ([2]==ontime
+        [track,on/off-time,on/off-string,channel,notenum,",81"]
+    we want to eliminate any silence >limit ms long by
+    removing the time for such 
+    we won't quite do that yet, but we'll start by zapping any
+    time gaps > limit regardless of whather those are silent
+    or noisy
+    '''
+    time2remove=0
+    lasttime=0
+    for note in array:
+        thistime=note[1]
+        if (lasttime+mingap)<thistime:
+            time2remove+=thistime-(laston+mingap)
+        lasttime=note[1]
+        note[1]-=time2remove
+    return
+
+
 # main line code...
 
 # our array of TLS sessions
@@ -494,11 +518,16 @@ for w in the_arr:
         # odd structure here is so we can sort on time in a sec...
         midicsv.append([note[5]+2,ontime,",note_on_c,",note[5],notenum,",81"])
         midicsv.append([note[5]+2,offtime,",note_off_c,",note[5],notenum,",0"])
+    
+    # now sort by time
     midicsv.sort(key=itemgetter(1))
+
+    # eliminate any non-changing time gapes > specified limit
+    if args.suppress_silence is not None:
+        killsilence(midicsv,args.suppress_silence)
+
+    # now sort by track/channel
     midicsv.sort(key=itemgetter(0))
-
-
-    # TODO: maybe eliminate any silence > say 2s? shouldn't be hard with this str.
 
     # TODO: eliminate cases where the same note is hit whilst still on by moving up one
     # go through notes array, note who's turned on/off when, then if an on-note is to

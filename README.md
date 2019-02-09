@@ -27,7 +27,7 @@ the pcap files.
     those to sound, either a .midi or .wav file or both.
     - that sorta seems to work, state is I need to check accuracy (it's suspect:-)
     - coupla TODOs likely really needed: 
-        - silence supression is e.g. >2s or something
+        - silence supression is e.g. >2s or something (code there, not working yet)
         - re-hit keys, move up/down one if a key/tone is playing now or
         otherwise avoid collisions (but pianos only have 88 keys so we
         can't avoid all, in general)
