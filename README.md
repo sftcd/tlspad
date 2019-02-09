@@ -37,11 +37,11 @@ enough for human ears to pick that up. Be fun to find out though!
 - [Tls2Music.py](Tls2Music.py) takes the packets sizes/times and turns
     those to sound, either a .midi or .wav file or both.
     - that sorta seems to work, state is I need to check accuracy (it's suspect:-)
-    - coupla TODOs likely really needed: 
-        - silence supression is e.g. >2s or something (code there, not working yet)
+    - a remaining TODO:
         - re-hit keys, move up/down one if a key/tone is playing now or
         otherwise avoid collisions (but pianos only have 88 keys so we
-        can't avoid all, in general)
+        can't avoid all, in general) - might not need it so much now, with
+        log time and supression it may be less of a deal
 - [composer.sh](composer.sh) is the start of a wrapper for all of the above
 
 ## Tools used

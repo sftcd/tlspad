@@ -132,6 +132,30 @@ class the_details():
 # that list may be offset by 1, i.e. we start at 0
 instrumentnum=1 # piano
 #instrumentnum=19 # choral organ
+# TODO: add an array of 16 instruments, one per channel
+instarr=[ 
+        0, # acoustic grand piano
+        9, # glockenspiel 
+        21, # accordian
+        25, # steel guitar
+
+        33, # electric bass
+        40, # violin
+        42, # cello
+        56, # trumpet
+
+        57, # trombone
+        66, # tenor sax
+            # channel 10 is drums of various kinds with restrictions on what note numbers can be used
+        71, # clarinet
+        79, # ocarina
+
+        105, # banjo
+        109, # bag pipe
+        114, # steel drums
+        103, # FX 8 (sci-fi) (huh?)
+        ]
+
 
 # command line arg handling 
 argparser=argparse.ArgumentParser(description='Turn some pcaps into music')
@@ -158,7 +182,7 @@ argparser.add_argument('-H','--high-note',
                     help='highest note (default: 4000Hz)')
 argparser.add_argument('-i','--instrument',
                     type=int, dest='instrument',
-                    help='midi instrument (0:127; default: 0)')
+                    help='midi instrument (-1:127; default: 0; -1 means built-in combo)')
 argparser.add_argument('-w','--wav',
                     help='beepy wav file output as well as midi',
                     action='store_true')
@@ -177,27 +201,22 @@ if args.fodname is not None:
     fodname=args.fodname
 
 if args.freq is not None:
-    # TODO: sanity check later
     sample_freq=args.freq
 
 if args.min_note is not None:
-    # TODO: sanity check later
     min_note_length=args.min_note
 
 if args.max_note is not None:
-    # TODO: sanity check later
     max_note_length=args.max_note
 
 if args.low_note is not None:
-    # TODO: sanity check later
     lowest_note=args.low_note
 
 if args.high_note is not None:
-    # TODO: sanity check later
     highest_note=args.high_note
 
 if args.instrument is not None:
-    if args.instrument < 0 or args.instrument >127:
+    if args.instrument < -1 or args.instrument >127:
         print("Error: instruments must be integers from 0 to 127")
         sys.exit(1)
     instrumentnum=args.instrument
@@ -341,6 +360,14 @@ def size2num(size,righthand,table):
             table[size]=low_num
     return table[size]
 
+def instrument(inum,channel):
+    if inum >=0 and inum <=127:
+        return str(inum)
+    if inum==-1:
+        return str(instarr[channel])
+    print("Error: bad instrument number: " + str(inum) + " on channel: " + str(channel))
+    return "ERROR"
+
 def killsilence(array, mingap):
     '''
     array has notes:
@@ -372,6 +399,7 @@ def killsilence(array, mingap):
 
 # our array of TLS sessions
 if args.verbose:
+    print("Running verbosely...")
     print("Reading pcaps...")
     print(flist)
 sessions=[]
@@ -479,7 +507,8 @@ for s in sessions:
 # sort notes timewise
 for w in the_arr:
     w.notes=sorted(w.notes, key=itemgetter(2))
-    print(w)
+    if args.verbose:
+        print(w)
 
 # write out midicsv file, one per src ip
 # to play such:
@@ -498,7 +527,6 @@ for w in the_arr:
         #notenum=freq2num(note[0])
         # table version
         notenum=size2num(note[3],note[4],table)
-        # TODO: test out logarithmic time
         ontime=int(note[2])
         offtime=int(note[1]+note[2])
         if args.logtime:
@@ -550,7 +578,7 @@ for w in the_arr:
 1, 0, Tempo, 500000\n\
 1, 0, End_track\n\
 2, 0, Start_track\n\
-2, 0, Program_c, 0, ' + str(instrumentnum) + '\n')
+2, 0, Program_c, 0, ' + instrument(instrumentnum,0) + '\n')
         current_track=midicsv[0][0]
         last_track_end=0
         for line in midicsv:
@@ -558,7 +586,7 @@ for w in the_arr:
                 f.write(str(current_track)+', '+str(last_track_end)+', End_track\n')
                 current_track=line[0]
                 f.write(str(current_track)+', 0, Start_track\n')
-                f.write(str(current_track)+', 0, Program_c,'+str(current_track-2)+','+str(instrumentnum) + '\n')
+                f.write(str(current_track)+', 0, Program_c,'+str(current_track-2)+','+ instrument(instrumentnum,current_track-2) + '\n')
             last_track_end=line[1]
             f.write(str(line[0])+","+str(line[1])+line[2]+str(line[3])+","+str(line[4])+line[5]+"\n")
         f.write(str(current_track)+', '+str(last_track_end)+', End_track\n')

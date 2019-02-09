@@ -32,11 +32,12 @@ SRCDIR=$HOME/code/tlspad
 
 function usage()
 {
-	echo "$0 [-f <capture-file/dir>] [-l <label>] [-S limit] [-wvcL]"
+	echo "$0 [-f <capture-file/dir>] [-l <label>] [-S limit] [ -i instrument] [-wvcL]"
     echo ""
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
     echo "-f - name of capture file or directory for capture files (default is '.')"
+    echo "-i - midi instrument (-1:127; default: 0; -1 means built-in combo)"
     echo "-l - label to use for files (will be anonymous hash otherwise)"
     echo "-S - suppress silence or noise that doesn't change for the specified limit (in ms)"
     echo "-c - clean out audio files in this directory (*.midi.csv, *.wav, *.midi)"
@@ -58,12 +59,14 @@ JUSTCLEAN="yes"
 # default to log time on and 1s suppression as it seems to work nicely
 LOGTIME=" -L "
 SUPPRESS=" -S 1000 "
+INSTRUMENT=" -i -1"
 # empty strings will turn 'em off
 # LOGTIME=""
 # SUPPRESS=""
+# INSTRUMENT=""
 
 # options may be followed by one colon to indicate they have a required argument
-if ! options=$(getopt -s bash -o S:Lschwvf:l: -l suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
+if ! options=$(getopt -s bash -o i:S:Lschwvf:l: -l instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
 then
 	# something went wrong, getopt will put out an error message for us
 	exit 1
@@ -75,6 +78,7 @@ do
 	case "$1" in
 		-h|--help) usage;;
         -f|--file) JUSTCLEAN="no"; OFILE=$2; shift;;
+        -i|--instrument) JUSTCLEAN="no"; INSTRUMENT=" -i $2"; shift;;
         -S|--suppress) JUSTCLEAN="no"; SUPPRESS="-s $2"; shift;;
         -l|--label) JUSTCLEAN="no"; LABEL=" -l $2"; shift;;
         -s|--skip) SKIP="yes";;
@@ -108,7 +112,7 @@ fi
 # Do the analysis to generate the csvmidi files (and optonal .wavs)
 if [[ "$SKIP" == "no" ]]
 then
-    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS
+    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT
 fi
 
 # TODO: finer grained control of which csvs to (re-)map to midis
