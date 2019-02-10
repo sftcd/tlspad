@@ -58,8 +58,8 @@ CLEAN="no"
 SKIP="no"
 JUSTCLEAN="yes"
 # default to log time on and 1s suppression as it seems to work nicely
-LOGTIME=" -L "
-SUPPRESS=" -S 1000 "
+LOGTIME=" -T "
+SUPPRESS=" -s 1000 "
 INSTRUMENT=" -i -1"
 # empty strings will turn 'em off
 # LOGTIME=""
@@ -69,8 +69,11 @@ INSTRUMENT=" -i -1"
 # no hardcoded URL
 URL=""
 
+# temp dir var (if needed)
+TDIR=""
+
 # options may be followed by one colon to indicate they have a required argument
-if ! options=$(getopt -s bash -o i:S:Lschwvf:l: -l instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
+if ! options=$(getopt -s bash -o u:i:S:Lschwvf:l: -l url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
 then
 	# something went wrong, getopt will put out an error message for us
 	exit 1
@@ -116,12 +119,55 @@ fi
 
 if [[ "$URL" != "" ]]
 then
-    # TODO: probably wanna do a mktemp -d to keep crap and just 
+    # make sure its https, and barf otherwise
+    if [[ ! $URL =~ ^https://.* ]] 
+    then
+        echo "Bad URL, I only do https for now - exiting"
+        exit 4
+    fi
+
+    # full URLs might not be good parts of file names so we'll pull out
+    # the DNS name and use that
+    DNSname=`echo $URL | awk -F/ '{print $3}'`
+    echo "DNS: $DNSname"
+    if [[ "$DNSname" == "" ]]
+    then
+        echo "Can't extract DNS name from $URL - exiting"
+        exit 5
+    fi
+
+    # probably wanna do a mktemp -d to keep crap and just 
+    TDIR=`mktemp -d /tmp/composeXXXX`
+    ODIR=$PWD
+    if [ ! -d $TDIR ]
+    then
+        echo "Failed to make temp dir ($TDIR) - exiting"
+        exit 1
+    fi
+    cd $TDIR
+
+    set -x
+
     # copy back out the midi file
-    # start capture - TODO: needs a timeout, or to take a kill signal
-    $SRCDIR/dumper.sh
+    # start capture 
+    $SRCDIR/dumper.sh -f $DNSname.pcap -s 10000 &
+    dpid=$!
+
     # access a URL via a headless browser
-    $SRCDIR/getsite.py $URL
+    $SRCDIR/getpage.py $URL
+
+    # kill off the tcpdump or tshark process
+    sleep 1
+    # if dumper still running, kill it
+    # FIXME: this doesn't always work
+    kill $dpid >/dev/null 2>&1
+
+    # set the label for later
+    if [[ "$LABEL" == "" ]]
+    then
+        LABEL=" -l $DNSname"
+    fi
+
 fi
 
 # Do the analysis to generate the csvmidi files (and optonal .wavs)
@@ -148,5 +194,14 @@ then
     done
 else
     echo "No csvs to process - exiting"
+fi
+
+if [[ "$TDIR" != "" ]]
+then
+    # clean up
+    cd $ODIR
+    mv $TDIR/*.midi $ODIR
+    rm -rf $TDIR
+    #echo "Results in $TDIR - please clean it up"
 fi
 

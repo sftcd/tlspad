@@ -221,5 +221,5 @@ fi
 
 
 echo "trying: $mbin $Zarg $msize -w $ofile -f \"$PORTS\" $theifs at $NOW"
-$mbin $Zarg $msize -w $ofile -f "$PORTS" $theifs
+$mbin $Zarg $msize -w $ofile -f "$PORTS" $theifs 
 

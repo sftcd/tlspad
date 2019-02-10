@@ -44,7 +44,7 @@ enough for human ears to pick that up. Be fun to find out though!
         log time and supression it may be less of a deal
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music
-- [composer.sh](composer.sh) is the start of a wrapper for all of the above
+- [composer.sh](composer.sh) is a wrapper for the above
 
 ## Tools used
 
