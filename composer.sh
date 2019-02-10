@@ -32,10 +32,11 @@ SRCDIR=$HOME/code/tlspad
 
 function usage()
 {
-	echo "$0 [-f <capture-file/dir>] [-l <label>] [-S limit] [ -i instrument] [-wvcL]"
+	echo "$0 [-u <url>] [-f <capture-file/dir>] [-l <label>] [-S limit] [ -i instrument] [-wvcL]"
     echo ""
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
+    echo "-u - URL to access, grab, analyse and turn into music"
     echo "-f - name of capture file or directory for capture files (default is '.')"
     echo "-i - midi instrument (-1:127; default: 0; -1 means built-in combo)"
     echo "-l - label to use for files (will be anonymous hash otherwise)"
@@ -65,6 +66,9 @@ INSTRUMENT=" -i -1"
 # SUPPRESS=""
 # INSTRUMENT=""
 
+# no hardcoded URL
+URL=""
+
 # options may be followed by one colon to indicate they have a required argument
 if ! options=$(getopt -s bash -o i:S:Lschwvf:l: -l instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
 then
@@ -78,6 +82,7 @@ do
 	case "$1" in
 		-h|--help) usage;;
         -f|--file) JUSTCLEAN="no"; OFILE=$2; shift;;
+        -u|--url) JUSTCLEAN="no"; URL=$2; shift;;
         -i|--instrument) JUSTCLEAN="no"; INSTRUMENT=" -i $2"; shift;;
         -S|--suppress) JUSTCLEAN="no"; SUPPRESS="-s $2"; shift;;
         -l|--label) JUSTCLEAN="no"; LABEL=" -l $2"; shift;;
@@ -93,12 +98,6 @@ do
 	shift
 done
 
-# TODO: we'll do the actual pcap capture stuff later as we'll want the
-# option of running a headless browser and doing it all locally, or, 
-# provding some UI prompts for the case where the user runs a real 
-# browser. So later then. Meanwhile, we'll assume the pcaps are in the
-# OFILE variable
-
 if [[ "$CLEAN" == "yes" ]]
 then
     rm -f *.midi.csv *.midi *.wav
@@ -107,6 +106,22 @@ then
         echo "Just cleaning - exiting"
         exit 0
     fi
+fi
+
+# we'll do the actual pcap capture stuff later as we'll want the
+# option of running a headless browser and doing it all locally, or, 
+# provding some UI prompts for the case where the user runs a real 
+# browser. So later then. Meanwhile, we'll assume the pcaps are in the
+# OFILE variable
+
+if [[ "$URL" != "" ]]
+then
+    # TODO: probably wanna do a mktemp -d to keep crap and just 
+    # copy back out the midi file
+    # start capture - TODO: needs a timeout, or to take a kill signal
+    $SRCDIR/dumper.sh
+    # access a URL via a headless browser
+    $SRCDIR/getsite.py $URL
 fi
 
 # Do the analysis to generate the csvmidi files (and optonal .wavs)
