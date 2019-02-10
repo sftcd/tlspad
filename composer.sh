@@ -129,7 +129,10 @@ then
     # full URLs might not be good parts of file names so we'll pull out
     # the DNS name and use that
     DNSname=`echo $URL | awk -F/ '{print $3}'`
-    echo "DNS: $DNSname"
+    if [[ "$VERBOSE" != "" ]]
+    then
+        echo "DNS: $DNSname"
+    fi
     if [[ "$DNSname" == "" ]]
     then
         echo "Can't extract DNS name from $URL - exiting"
@@ -146,12 +149,16 @@ then
     fi
     cd $TDIR
 
-    set -x
-
     # copy back out the midi file
     # start capture 
-    $SRCDIR/dumper.sh -f $DNSname.pcap -s 10000 &
-    dpid=$!
+    if [[ "$VERBOSE" == ""  ]]
+    then
+        $SRCDIR/dumper.sh -f $DNSname.pcap -s 10000 >/dev/null 2>&1 &
+        dpid=$!
+    else
+        $SRCDIR/dumper.sh -f $DNSname.pcap -s 10000 &
+        dpid=$!
+    fi
 
     # access a URL via a headless browser
     $SRCDIR/getpage.py $URL
@@ -159,8 +166,20 @@ then
     # kill off the tcpdump or tshark process
     sleep 1
     # if dumper still running, kill it
-    # FIXME: this doesn't always work
-    kill $dpid >/dev/null 2>&1
+    # this doesn't always work...
+    if [[ "$VERBOSE" == ""  ]]
+    then
+        # ... so we'll also kill all capture instances we may have started
+        # should be ok as these aren't usually running but better not add
+        # this as a cron job
+        kill $dpid >/dev/null 2>&1 
+        sudo killall tcpdump >/dev/null 2>&1 
+        sudo killall tshark >/dev/null 2>&1 
+    else
+        kill $dpid >/dev/null 
+        sudo killall tcpdump
+        sudo killall tshark 
+    fi
 
     # set the label for later
     if [[ "$LABEL" == "" ]]

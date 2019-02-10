@@ -44,10 +44,11 @@ UPORTS=""
 
 function usage()
 {
-	echo "$0 [-h] [-D] [-f <capture-file/dir>] [-p <\"port list\">] [-i <\"iface-list\">] [-b <tool>] [-s <maxsize>]"
+	echo "$0 [-h] [-D] [-f <capture-file/dir>] [-p <\"port list\">] [-i <\"iface-list\">] [-b <tool>] [-s <maxsize>] [-v]"
     echo ""
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
+    echo "-v - be verbose"
     echo "-D - list possible capture interfaces"
     echo "-f - name of capture file or directory for capture files"
     echo "-p - specifiy port(s) to monitor (quoted list if >1)"
@@ -73,6 +74,9 @@ IFACES=""
 # max size to capture, 0 == unlimited
 MAXSIZE=1024
 
+# verborse or not?
+VERBOSE=""
+
 # which tool to use
 tshark=`which tshark`
 tcpdump=`which tcpdump`
@@ -90,7 +94,7 @@ then
 fi
 
 # options may be followed by one colon to indicate they have a required argument
-if ! options=$(getopt -s bash -o hDf:p:i:b:s: -l help,list,file:,port:,iface:,binary:,size: -- "$@")
+if ! options=$(getopt -s bash -o vhDf:p:i:b:s: -l verbose,help,list,file:,port:,iface:,binary:,size: -- "$@")
 then
 	# something went wrong, getopt will put out an error message for us
 	exit 1
@@ -101,6 +105,7 @@ while [ $# -gt 0 ]
 do
 	case "$1" in
 		-h|--help) usage;;
+		-v|--verbose) VERBOSE="yes";;
 		-D|--list) LISTIFS="yes" ;;
         -f|--file) OFILE=$2; shift;;
         -i|--iface) IFACES=$2; shift;;
@@ -148,7 +153,10 @@ then
         (*wan*) IFACES="wan";;
         (*eth0*) IFACES="eth0";;
         (*veth-mon*) IFACES="veth-mon";;
-        (*) echo "Can't tell what interface to use - trying \"any\""
+        (*) if [[ "$VERBOSE" == "yes" ]]
+            then
+                echo "Can't tell what interface to use - trying \"any\""
+            fi
            IFACES="any";;
     esac
 fi
@@ -220,6 +228,9 @@ then
 fi
 
 
-echo "trying: $mbin $Zarg $msize -w $ofile -f \"$PORTS\" $theifs at $NOW"
+if [[ "$VERBOSE" ==  "yes" ]]
+then
+    echo "trying: $mbin $Zarg $msize -w $ofile -f \"$PORTS\" $theifs at $NOW"
+fi
 $mbin $Zarg $msize -w $ofile -f "$PORTS" $theifs 
 

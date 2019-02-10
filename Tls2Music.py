@@ -301,7 +301,7 @@ def hash_name(key,fname,src):
         # ":" in file names spells trouble so zap 'em
         # (they'll occur in IPv6 addresses)
         psrc=src.replace(":","")
-        rv=label+"-"+psrc
+        rv=str(int(time.time()))+"-"+label+"-"+psrc
     else:
         m=fname+src
         hmacval = hmac.new(key, msg=m.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
