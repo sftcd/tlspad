@@ -250,6 +250,9 @@ def analyse_pcaps(flist,sessions,verbose):
                         elif pkt.ssl.handshake_type=="12":
                             #print("ServerKeyExchange")
                             pass
+                        elif pkt.ssl.handshake_type=="14":
+                            #print("ServerHelloDone")
+                            pass
                         elif pkt.ssl.handshake_type=="16":
                             #print("ClientKeyExchange")
                             pass

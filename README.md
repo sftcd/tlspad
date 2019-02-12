@@ -47,7 +47,7 @@ enough for human ears to pick that up. Be fun to find out though!
 - [composer.sh](composer.sh) is a wrapper for the above:
 
             $ ./composer.sh -h 
-            ./composer.sh [-u <url>] [-f <capture-file/dir>] [-l <label>] [-s limit] [ -i instrument] [-wvcLS]
+            ./composer.sh [-u <url-or-file>] [-f <capture-file/dir>] [-l <label>] [-s limit] [ -i instrument] [-kwvcLS]
             
             Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:
             -h - produce this
@@ -64,9 +64,14 @@ enough for human ears to pick that up. Be fun to find out though!
             -v - be verbose
             -w - produce .wav files as well as .mimd (warning: slow, maybe buggy)
 
-    If you give that a URL you'll end up with a midi file you can play with 
-    [timidity](https://www.timidity.jp/). There're a load of installs needed
-    to get that to work, I'll document 'em when I set this up on a 2nd box.
+    - If you give that a URL or a filename with one URL/line you'll end up with a 
+    (set of) midi file(s) you can play with [timidity](https://www.timidity.jp/). 
+    There're a load of installs needed to get that to work, I'll document 'em when 
+    I set this up on a 2nd box.
+    - The "-u" option uses selenium to fire up a test browser but that seems to
+    fail (blocking) from time to time. Killing the test browser seens to get 
+    things to move along ok, albeit we miss that measurement.
+
 
 ## Tools used
 

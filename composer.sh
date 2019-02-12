@@ -32,7 +32,7 @@ SRCDIR=$HOME/code/tlspad
 
 function usage()
 {
-	echo "$0 [-u <url>] [-f <capture-file/dir>] [-l <label>] [-s limit] [ -i instrument] [-kwvcLS]"
+	echo "$0 [-u <url-or-file>] [-f <capture-file/dir>] [-l <label>] [-s limit] [ -i instrument] [-kwvcLSn]"
     echo ""
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
@@ -43,6 +43,7 @@ function usage()
     echo "-l - label to use for files (will be anonymous hash otherwise)"
     echo "-s - suppress silence or noise that doesn't change for the specified limit (in ms)"
     echo "-c - clean out audio files in this directory (*.midi.csv, *.wav, *.midi)"
+    echo "-n - do not clean up temporary files when getting URLs"
     echo "-k - skip new data generation and just map csv's to midi's in the current dir"
     echo "-L - use logarithmic time"
     echo "-S - use scaled time"
@@ -60,6 +61,7 @@ LABEL=""
 CLEAN="no"
 SKIP="no"
 JUSTCLEAN="yes"
+NOCLEAN="no"
 # default to log time off and 1s suppression as it seems to work nicely
 LOGTIME=""
 SUPPRESS=" -s 1000 "
@@ -73,14 +75,14 @@ SCALED=""
 # if you want scaled time on
 # SCALED=" -S "
 
-# no hardcoded URL
+# no hardcoded URL or URL filename
 URL=""
 
 # temp dir var (if needed)
 TDIR=""
 
 # options may be followed by one colon to indicate they have a required argument
-if ! options=$(getopt -s bash -o Su:i:sLkchwvf:l: -l scaled,url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
+if ! options=$(getopt -s bash -o nSu:i:sLkchwvf:l: -l noclean,scaled,url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
 then
 	# something went wrong, getopt will put out an error message for us
 	exit 1
@@ -98,6 +100,7 @@ do
         -l|--label) JUSTCLEAN="no"; LABEL=" -l $2"; shift;;
         -k|--skip) SKIP="yes";;
         -c|--clean) CLEAN="yes";;
+        -n|--noclean) NOCLEAN="yes";;
         -w|--wav) JUSTCLEAN="no"; WAVOUT=" -w ";;
         -L|--logtime) JUSTCLEAN="no"; LOGTIME=" -T ";;
         -S|--scaled) JUSTCLEAN="no"; SCALED=" -S ";;
@@ -127,24 +130,19 @@ fi
 
 if [[ "$SKIP" == "no" && "$URL" != "" ]]
 then
-    # make sure its https, and barf otherwise
-    if [[ ! $URL =~ ^https://.* ]] 
+    url_list=""
+    if [ -f $URL ] 
     then
-        echo "Bad URL, I only do https for now - exiting"
-        exit 4
-    fi
-
-    # full URLs might not be good parts of file names so we'll pull out
-    # the DNS name and use that
-    DNSname=`echo $URL | awk -F/ '{print $3}'`
-    if [[ "$VERBOSE" != "" ]]
-    then
-        echo "DNS: $DNSname"
-    fi
-    if [[ "$DNSname" == "" ]]
-    then
-        echo "Can't extract DNS name from $URL - exiting"
-        exit 5
+        while IFS= read -r oneURL
+        do
+            if [[ "${oneURL::1}" != "#" ]]
+            then
+                url_list="$url_list $oneURL"
+            fi
+        done < "$URL"
+        echo "$url_list"
+    else
+        url_list=$URL
     fi
 
     # probably wanna do a mktemp -d to keep crap and just 
@@ -156,49 +154,84 @@ then
         exit 1
     fi
     cd $TDIR
+    for url in $url_list
+    do
+        # make sure its https, and barf otherwise
+        if [[ ! $url =~ ^https://.* ]] 
+        then
+            echo "Bad URL, I only do https for now - exiting"
+            exit 4
+        fi
 
-    # copy back out the midi file
-    # start capture 
-    if [[ "$VERBOSE" == ""  ]]
-    then
-        $SRCDIR/dumper.sh -f $DNSname.pcap -s 10000 >/dev/null 2>&1 &
-        dpid=$!
-    else
-        $SRCDIR/dumper.sh -f $DNSname.pcap -s 10000 &
-        dpid=$!
-    fi
+        # full URLs might not be good parts of file names so we'll pull out
+        # the DNS name and use that
+        DNSname=`echo $url | awk -F/ '{print $3}'`
+        if [[ "$VERBOSE" != "" ]]
+        then
+            echo "DNS: $DNSname"
+        fi
+        if [[ "$DNSname" == "" ]]
+        then
+            echo "Can't extract DNS name from $url - exiting"
+            exit 5
+        fi
 
-    # access a URL via a headless browser
-    $SRCDIR/getpage.py $URL
+        # copy back out the midi file
+        # start capture 
+        if [[ "$VERBOSE" == ""  ]]
+        then
+            $SRCDIR/dumper.sh -f $DNSname.pcap -s 10000 >/dev/null 2>&1 &
+            dpid=$!
+        else
+            $SRCDIR/dumper.sh -f $DNSname.pcap -s 10000 &
+            dpid=$!
+        fi
 
-    # kill off the tcpdump or tshark process
-    sleep 1
-    # if dumper still running, kill it
-    # this doesn't always work...
-    if [[ "$VERBOSE" == ""  ]]
-    then
-        # ... so we'll also kill all capture instances we may have started
-        # should be ok as these aren't usually running but better not add
-        # this as a cron job
-        kill $dpid >/dev/null 2>&1 
-        sudo killall tcpdump >/dev/null 2>&1 
-        sudo killall tshark >/dev/null 2>&1 
-    else
-        kill $dpid >/dev/null 
-        sudo killall tcpdump
-        sudo killall tshark 
-    fi
+        # access a URL via a headless browser
+        # that fails sometimes (blocking, apparently) so we want
+        # to force a fail after a while, 2mins in our case
+        getpage_failed="no"
+        timeout 120s $SRCDIR/getpage.py $url
+        if (( $? != 0 ))
+        then
+            getpage_failed="yes"
+        fi
 
-    # set the label for later
-    if [[ "$LABEL" == "" ]]
-    then
-        LABEL=" -l $DNSname"
-    fi
+        # kill off the tcpdump or tshark process
+        sleep 1
+        # if dumper still running, kill it
+        # this doesn't always work...
+        if [[ "$VERBOSE" == ""  ]]
+        then
+            # ... so we'll also kill all capture instances we may have started
+            # should be ok as these aren't usually running but better not add
+            # this as a cron job
+            kill $dpid >/dev/null 2>&1 
+            sudo killall tcpdump >/dev/null 2>&1 
+            sudo killall tshark >/dev/null 2>&1 
+        else
+            kill $dpid >/dev/null 
+            sudo killall tcpdump
+            sudo killall tshark 
+        fi
 
+        # set the label for later
+        if [[ "$LABEL" == "" ]]
+        then
+            thisLABEL=" -l $DNSname"
+        fi
+
+        if [[ "$getpage_failed" == "no" ]]
+        then
+            # Do the analysis to generate the csvmidi files (and optonal .wavs)
+            $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED
+        fi
+
+    done
 fi
 
-# Do the analysis to generate the csvmidi files (and optonal .wavs)
-if [[ "$SKIP" == "no" ]]
+# One-shot analysis to generate the csvmidi files (and optonal .wavs)
+if [[ "$SKIP" == "no" && "$URL" == "" ]]
 then
     $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED
 fi
@@ -223,12 +256,14 @@ else
     echo "No csvs to process - exiting"
 fi
 
-if [[ "$TDIR" != "" ]]
+cd $ODIR
+if [[ "$NOCLEAN" == "no" && "$TDIR" != "" ]]
 then
     # clean up
-    cd $ODIR
     mv $TDIR/*.midi $ODIR
     rm -rf $TDIR
-    #echo "Results in $TDIR - please clean it up"
+else
+    echo "Full Results in $TDIR - please clean it up"
+    cp $TDIR/*.midi $ODIR
 fi
 
