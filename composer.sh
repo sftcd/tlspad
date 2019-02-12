@@ -32,17 +32,20 @@ SRCDIR=$HOME/code/tlspad
 
 function usage()
 {
-	echo "$0 [-u <url>] [-f <capture-file/dir>] [-l <label>] [-S limit] [ -i instrument] [-wvcL]"
+	echo "$0 [-u <url>] [-f <capture-file/dir>] [-l <label>] [-s limit] [ -i instrument] [-kwvcLS]"
     echo ""
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
-    echo "-u - URL to access, grab, analyse and turn into music"
+    echo "-u - URL to access, grab, analyse and turn into midi file"
+    echo "     This uses: '-l <DNSname> -s 1000 -i -1'"
     echo "-f - name of capture file or directory for capture files (default is '.')"
     echo "-i - midi instrument (-1:127; default: 0; -1 means built-in combo)"
     echo "-l - label to use for files (will be anonymous hash otherwise)"
-    echo "-S - suppress silence or noise that doesn't change for the specified limit (in ms)"
+    echo "-s - suppress silence or noise that doesn't change for the specified limit (in ms)"
     echo "-c - clean out audio files in this directory (*.midi.csv, *.wav, *.midi)"
+    echo "-k - skip new data generation and just map csv's to midi's in the current dir"
     echo "-L - use logarithmic time"
+    echo "-S - use scaled time"
     echo "-v - be verbose"
     echo "-w - produce .wav files as well as .mimd (warning: slow, maybe buggy)"
 	exit 99
@@ -57,14 +60,18 @@ LABEL=""
 CLEAN="no"
 SKIP="no"
 JUSTCLEAN="yes"
-# default to log time on and 1s suppression as it seems to work nicely
-LOGTIME=" -T "
+# default to log time off and 1s suppression as it seems to work nicely
+LOGTIME=""
 SUPPRESS=" -s 1000 "
 INSTRUMENT=" -i -1"
+SCALED=""
 # empty strings will turn 'em off
-# LOGTIME=""
 # SUPPRESS=""
 # INSTRUMENT=""
+# if you want log time on
+# LOGTIME=" -T "
+# if you want scaled time on
+# SCALED=" -S "
 
 # no hardcoded URL
 URL=""
@@ -73,7 +80,7 @@ URL=""
 TDIR=""
 
 # options may be followed by one colon to indicate they have a required argument
-if ! options=$(getopt -s bash -o u:i:S:Lschwvf:l: -l url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
+if ! options=$(getopt -s bash -o Su:i:sLkchwvf:l: -l scaled,url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
 then
 	# something went wrong, getopt will put out an error message for us
 	exit 1
@@ -87,12 +94,13 @@ do
         -f|--file) JUSTCLEAN="no"; OFILE=$2; shift;;
         -u|--url) JUSTCLEAN="no"; URL=$2; shift;;
         -i|--instrument) JUSTCLEAN="no"; INSTRUMENT=" -i $2"; shift;;
-        -S|--suppress) JUSTCLEAN="no"; SUPPRESS="-s $2"; shift;;
+        -s|--suppress) JUSTCLEAN="no"; SUPPRESS="-s $2"; shift;;
         -l|--label) JUSTCLEAN="no"; LABEL=" -l $2"; shift;;
-        -s|--skip) SKIP="yes";;
+        -k|--skip) SKIP="yes";;
         -c|--clean) CLEAN="yes";;
         -w|--wav) JUSTCLEAN="no"; WAVOUT=" -w ";;
         -L|--logtime) JUSTCLEAN="no"; LOGTIME=" -T ";;
+        -S|--scaled) JUSTCLEAN="no"; SCALED=" -S ";;
         -v|--verbose) VERBOSE=" -v ";;
 		(--) shift; break;;
 		(-*) echo "$0: error - unrecognized option $1" 1>&2; exit 1;;
@@ -117,7 +125,7 @@ fi
 # browser. So later then. Meanwhile, we'll assume the pcaps are in the
 # OFILE variable
 
-if [[ "$URL" != "" ]]
+if [[ "$SKIP" == "no" && "$URL" != "" ]]
 then
     # make sure its https, and barf otherwise
     if [[ ! $URL =~ ^https://.* ]] 
@@ -192,7 +200,7 @@ fi
 # Do the analysis to generate the csvmidi files (and optonal .wavs)
 if [[ "$SKIP" == "no" ]]
 then
-    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT
+    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED
 fi
 
 # TODO: finer grained control of which csvs to (re-)map to midis

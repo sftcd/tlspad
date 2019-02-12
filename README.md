@@ -46,21 +46,24 @@ enough for human ears to pick that up. Be fun to find out though!
     capture the pcap and make music
 - [composer.sh](composer.sh) is a wrapper for the above:
 
-            $ ./composer.sh -h
-            ./composer.sh [-u <url>] [-f <capture-file/dir>] [-l <label>] [-S limit] [ -i instrument] [-wvcL]
+            $ ./composer.sh -h 
+            ./composer.sh [-u <url>] [-f <capture-file/dir>] [-l <label>] [-s limit] [ -i instrument] [-wvcLS]
             
             Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:
             -h - produce this
-            -u - URL to access, grab, analyse and turn into music
+            -u - URL to access, grab, analyse and turn into midi file
+                 This uses: '-l <DNSname> -s 1000 -i -1'
             -f - name of capture file or directory for capture files (default is '.')
             -i - midi instrument (-1:127; default: 0; -1 means built-in combo)
             -l - label to use for files (will be anonymous hash otherwise)
-            -S - suppress silence or noise that doesn't change for the specified limit (in ms)
+            -s - suppress silence or noise that doesn't change for the specified limit (in ms)
             -c - clean out audio files in this directory (*.midi.csv, *.wav, *.midi)
+            -k - skip new data generation and just map csv's to midi's in the current dir
             -L - use logarithmic time
+            -S - use scaled time
             -v - be verbose
             -w - produce .wav files as well as .mimd (warning: slow, maybe buggy)
-    
+
     If you give that a URL you'll end up with a midi file you can play with 
     [timidity](https://www.timidity.jp/). There're a load of installs needed
     to get that to work, I'll document 'em when I set this up on a 2nd box.

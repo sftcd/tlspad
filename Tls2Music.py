@@ -192,6 +192,9 @@ argparser.add_argument('-v','--verbose',
 argparser.add_argument('-T','--logtime',     
                     help='use logarithmic time',
                     action='store_true')
+argparser.add_argument('-S','--scaledtime',     
+                    help='use scaled time (read code for details:-)',
+                    action='store_true')
 argparser.add_argument('-s','--suppress-silence',     
                     type=int, dest='suppress_silence',
                     help='suppress <num> ms of no-change (not really silence but good enough')
@@ -394,6 +397,29 @@ def killsilence(array, mingap):
             pass
     return
 
+# scale time oddly...
+def scaletime(x):
+    '''
+    We'll assume original is ~30s or less (before supression)
+    and we'll map down to ~10s, with 1st second expanded to
+    2.5s, 2nd linear, 3rd 0.75 and the rest to 0.4
+    '''
+    mapped=0
+    if x < 0:
+        raise ValueError('negative X in scaletime - ' + str(x) + ' - exiting')
+    elif x <= 1000:
+        mapped=int(2.5*x)
+        #print("Mapped1: "+str(x)+" to: "+str(mapped)) 
+    elif x <= 2000:
+        mapped=int((x-1000)+2500)
+        #print("Mapped2: "+str(x)+" to: "+str(mapped)) 
+    elif x <= 3000:
+        mapped=int((x-2000)*0.75+3500)
+        #print("Mapped3: "+str(x)+" to: "+str(mapped)) 
+    else: 
+        mapped=int((x-3000)*0.4+4250)
+        #print("Mapped4: "+str(x)+" to: "+str(mapped)) 
+    return mapped
 
 # main line code...
 
@@ -503,6 +529,10 @@ for s in sessions:
         if args.verbose:
             print("Warning: >16 TLS sessions in one midi file for " + s.src)
         w.this_session = (w.this_session + 1) % 16
+        # this_session will map to midi channel, so we'll skip #10 which is drums
+        # because they don't have so many notes as pianos and we lose information
+        if w.this_session == 9:
+            w.this_session=10
 
 # sort notes timewise
 for w in the_arr:
@@ -527,8 +557,10 @@ for w in the_arr:
         #notenum=freq2num(note[0])
         # table version
         notenum=size2num(note[3],note[4],table)
+        # linear time
         ontime=int(note[2])
         offtime=int(note[1]+note[2])
+        # change if log time...
         if args.logtime:
             try:
                 if note[2]==0:
@@ -549,8 +581,22 @@ for w in the_arr:
                 print("ouch! processing " + w.fname)
                 print(str(w))
                 sys.exit(1)
+        # Try another time compression - log compresses too much
+        if args.scaledtime:
+            ontime=scaletime(note[2])
+            offtime=scaletime(note[1]+note[2])
+
         # odd structure here is so we can sort on time in a sec...
-        midicsv.append([note[5]+2,ontime,",note_on_c,",note[5],notenum,",81"])
+        # let's play with different velocities see what that does...
+        # BANG the keys...
+        # midicsv.append([note[5]+2,ontime,",note_on_c,",note[5],notenum,",81"])
+        # Nice and gentle...
+        # midicsv.append([note[5]+2,ontime,",note_on_c,",note[5],notenum,",21"])
+        # Earlier channels loudest
+        # velocity = 81-5*channel (aka note[5]) 
+        vel=int(81-4*note[5])
+        midicsv.append([note[5]+2,ontime,",note_on_c,",note[5],notenum,","+str(vel)])
+        # might make the above a parameter, but not yet
         midicsv.append([note[5]+2,offtime,",note_off_c,",note[5],notenum,",0"])
     
     # now sort by time
@@ -578,6 +624,7 @@ for w in the_arr:
 1, 0, Tempo, 500000\n\
 1, 0, End_track\n\
 2, 0, Start_track\n\
+2, 0, Instrument_name_t, "channel 0 misc"\n\
 2, 0, Program_c, 0, ' + instrument(instrumentnum,0) + '\n')
         current_track=midicsv[0][0]
         last_track_end=0
@@ -586,6 +633,7 @@ for w in the_arr:
                 f.write(str(current_track)+', '+str(last_track_end)+', End_track\n')
                 current_track=line[0]
                 f.write(str(current_track)+', 0, Start_track\n')
+                f.write(str(current_track)+', 0, Instrument_name_t, "channel '+str(current_track-2)+' misc"\n')
                 f.write(str(current_track)+', 0, Program_c,'+str(current_track-2)+','+ instrument(instrumentnum,current_track-2) + '\n')
             last_track_end=line[1]
             f.write(str(line[0])+","+str(line[1])+line[2]+str(line[3])+","+str(line[4])+line[5]+"\n")
