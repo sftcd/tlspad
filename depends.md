@@ -77,7 +77,7 @@ on that path that I should fix, but I've (probably) not yet;-)
             $ sudo apt install midicsv
             $ sudo apt install timidity
 
-    - So if you take the ``.midi`` from  step 3 you should be able to do:
+    - So if you take the CSV file from  step 3 you should be able to do:
 
             $ csvmidi foo.midi.csv foo.midi
             $ timidity foo.midi
