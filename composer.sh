@@ -32,13 +32,14 @@ SRCDIR=$HOME/code/tlspad
 
 function usage()
 {
-	echo "$0 [-u <url-or-file>] [-f <capture-file/dir>] [-l <label>] [-s limit] [ -i instrument] [-kwvcLSn]"
+	echo "$0 [-u <url-or-file>] [-f <capture-file/dir>] [-l <label>] [-s limit] [ -i instrument] [-kwvcLSnA]"
     echo ""
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
     echo "-u - URL to access, grab, analyse and turn into midi file"
-    echo "     This uses: '-l <DNSname> -s 1000 -i -1'"
+    echo "     This uses: '-l <DNSname> -s 1000 -i -1 -A'"
     echo "-f - name of capture file or directory for capture files (default is '.')"
+    echo "-A - map all pcaps into one music/noise file output"
     echo "-i - midi instrument (-1:127; default: 0; -1 means built-in combo)"
     echo "-l - label to use for files (will be anonymous hash otherwise)"
     echo "-s - suppress silence or noise that doesn't change for the specified limit (in ms)"
@@ -62,6 +63,7 @@ CLEAN="no"
 SKIP="no"
 JUSTCLEAN="yes"
 NOCLEAN="no"
+ALLINONE=""
 # default to log time off and 1s suppression as it seems to work nicely
 LOGTIME=""
 SUPPRESS=" -s 1000 "
@@ -82,7 +84,7 @@ URL=""
 TDIR=""
 
 # options may be followed by one colon to indicate they have a required argument
-if ! options=$(getopt -s bash -o nSu:i:sLkchwvf:l: -l noclean,scaled,url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
+if ! options=$(getopt -s bash -o AnSu:i:sLkchwvf:l: -l allinone,noclean,scaled,url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
 then
 	# something went wrong, getopt will put out an error message for us
 	exit 1
@@ -102,6 +104,7 @@ do
         -c|--clean) CLEAN="yes";;
         -n|--noclean) NOCLEAN="yes";;
         -w|--wav) JUSTCLEAN="no"; WAVOUT=" -w ";;
+        -A|--allinone) JUSTCLEAN="no"; ALLINONE=" -A ";;
         -L|--logtime) JUSTCLEAN="no"; LOGTIME=" -T ";;
         -S|--scaled) JUSTCLEAN="no"; SCALED=" -S ";;
         -v|--verbose) VERBOSE=" -v ";;
@@ -221,10 +224,13 @@ then
             thisLABEL=" -l $DNSname"
         fi
 
+        # force ALLINONE
+        ALLINONE=" -A "
+
         if [[ "$getpage_failed" == "no" ]]
         then
             # Do the analysis to generate the csvmidi files (and optonal .wavs)
-            $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED
+            $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $ALLINONE
         fi
 
     done
@@ -233,7 +239,7 @@ fi
 # One-shot analysis to generate the csvmidi files (and optonal .wavs)
 if [[ "$SKIP" == "no" && "$URL" == "" ]]
 then
-    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED
+    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $ALLINONE
 fi
 
 # TODO: finer grained control of which csvs to (re-)map to midis

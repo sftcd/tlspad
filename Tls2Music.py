@@ -195,6 +195,9 @@ argparser.add_argument('-T','--logtime',
 argparser.add_argument('-S','--scaledtime',     
                     help='use scaled time (read code for details:-)',
                     action='store_true')
+argparser.add_argument('-A','--allinone',     
+                    help='produce only one midi file for all sessions',
+                    action='store_true')
 argparser.add_argument('-s','--suppress-silence',     
                     type=int, dest='suppress_silence',
                     help='suppress <num> ms of no-change (not really silence but good enough')
@@ -305,10 +308,13 @@ def hash_name(key,fname,src):
         # (they'll occur in IPv6 addresses)
         psrc=src.replace(":","")
         hmacval = hmac.new(key, msg=src.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
-        ipver="ipv4"
-        if ":" in src:
-            ipver="ipv6"
-        rv=str(int(time.time()))+"-"+label+"-"+ipver+"-"+hmacval[0:8]
+        if args.allinone:
+            rv=str(int(time.time()))+"-"+label+"-all-"+hmacval[0:8]
+        else:
+            ipver="ipv4"
+            if ":" in src:
+                ipver="ipv6"
+            rv=str(int(time.time()))+"-"+label+"-"+ipver+"-"+hmacval[0:8]
     else:
         m=fname+src
         hmacval = hmac.new(key, msg=m.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
@@ -448,19 +454,30 @@ the_arr=[]
 src_ips=[]
 
 for s in sessions:
-    w=find_details(the_arr,s.src)
-    if w is None:
-        wname=hash_name(hmac_secret,s.fname,s.src)
-        src_ips.append(s.src)
-        try:
-            #print("Option1: " + str(s.end_time.timestamp()))
-            w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp,latest=s.end_time.timestamp())
-        except:
-            #print("Option2: " + " val: " + str(s.end_time))
-            w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp)
-        the_arr.append(w)
+    if not args.allinone:
+        w=find_details(the_arr,s.src)
+        if w is None:
+            wname=hash_name(hmac_secret,s.fname,s.src)
+            src_ips.append(s.src)
+            try:
+                #print("Option1: " + str(s.end_time.timestamp()))
+                w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp,latest=s.end_time.timestamp())
+            except:
+                #print("Option2: " + " val: " + str(s.end_time))
+                w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp)
+            the_arr.append(w)
+        else:
+            w.nsessions += 1
     else:
-        w.nsessions += 1
+        if len(the_arr)==0:
+            wname=hash_name(hmac_secret,s.fname,s.src)
+            try:
+                #print("Option3: " + str(s.end_time.timestamp()))
+                w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp,latest=s.end_time.timestamp())
+            except:
+                #print("Option4: " + " val: " + str(s.end_time))
+                w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp)
+            the_arr.append(w)
 
     # possibly update overall timing of w
     if s.timestamp < w.earliest:
@@ -517,7 +534,10 @@ for s in sessions:
 
 # loop again through sessions to pick up PDU details
 for s in sessions:
-    w=find_details(the_arr,s.src)
+    if not args.allinone:
+        w=find_details(the_arr,s.src)
+    else:
+        w=the_arr[0]
     if w is None:
         raise ValueError('No details for session: ' + s.sess_id)
     for i in range(0,len(s.s_psizes)):
