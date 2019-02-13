@@ -14,9 +14,9 @@ This is a side project related to my
 To start with, I need some idea of what packet sizes are used in the wild, so
 initial work relates to a [measurement script](dumper.sh) to capture some
 packets. Once I have some of those, I'll figure out how I want to analyse
-the pcap files.
+the pcap files. First cut is to play about with making noise...
 
-## The argument...
+## The musical argument...
 
 The argument is actually fairly simple:
 - if we map packet size/timing to music in a regular/predictable manner, and,
@@ -47,30 +47,33 @@ enough for human ears to pick that up. Be fun to find out though!
 - [composer.sh](composer.sh) is a wrapper for the above:
 
             $ ./composer.sh -h 
-            ./composer.sh [-u <url-or-file>] [-f <capture-file/dir>] [-l <label>] [-s limit] [ -i instrument] [-kwvcLS]
+            ./composer.sh [-u <url-or-file>] [-f <capture-file/dir>] [-l <label>] [-s limit] [ -i instrument] [-kwvcLSnA]
             
             Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:
             -h - produce this
             -u - URL to access, grab, analyse and turn into midi file
-                 This uses: '-l <DNSname> -s 1000 -i -1'
+                 This uses: '-l <DNSname> -s 1000 -i -1 -A'
             -f - name of capture file or directory for capture files (default is '.')
+            -A - map all pcaps into one music/noise file output
             -i - midi instrument (-1:127; default: 0; -1 means built-in combo)
             -l - label to use for files (will be anonymous hash otherwise)
             -s - suppress silence or noise that doesn't change for the specified limit (in ms)
             -c - clean out audio files in this directory (*.midi.csv, *.wav, *.midi)
+            -n - do not clean up temporary files when getting URLs
             -k - skip new data generation and just map csv's to midi's in the current dir
             -L - use logarithmic time
             -S - use scaled time
             -v - be verbose
-            -w - produce .wav files as well as .mimd (warning: slow, maybe buggy)
+            -w - produce .wav files as well as .midi (warning: slow, maybe buggy)
 
-    - If you give that a URL or a filename with one URL/line you'll end up with a 
+    - If you give that a ``-u URL`` or ``-u filename`` (with one URL/line in that file),
+    you'll end up with a 
     (set of) midi file(s) you can play with [timidity](https://www.timidity.jp/). 
-    There're a load of installs needed to get that to work, I'll document 'em when 
-    I set this up on a 2nd box.
     - The "-u" option uses selenium to fire up a test browser but that seems to
     fail (blocking) from time to time. Killing the test browser seens to get 
     things to move along ok, albeit we miss that measurement.
+    - There're a load of installs needed to get all that to work, I'll document 'em when 
+    I set this up on a 2nd box and have to re-do 'em.
 
 
 ## Tools used

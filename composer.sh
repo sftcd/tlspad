@@ -49,7 +49,7 @@ function usage()
     echo "-L - use logarithmic time"
     echo "-S - use scaled time"
     echo "-v - be verbose"
-    echo "-w - produce .wav files as well as .mimd (warning: slow, maybe buggy)"
+    echo "-w - produce .wav files as well as .midi (warning: slow, maybe buggy)"
 	exit 99
 }
 
