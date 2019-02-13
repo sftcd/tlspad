@@ -29,6 +29,9 @@ enough for human ears to pick that up. Be fun to find out though!
 
 ## Tools here
 
+Notes about what you need to install are [here](depends.md). Might turn that into a script
+as I go.
+
 - [dumper.sh](dumper.sh) is a bash script that's a small wrapper on tshark or tcpdump
     - [functions.sh](functions.sh) has some bash utility stuff I tend to re-use
 - [TlsPadFncs.py](TlsPadFncs.py) has classes and functions that are used by...
