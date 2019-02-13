@@ -478,6 +478,9 @@ for s in sessions:
                 #print("Option4: " + " val: " + str(s.end_time))
                 w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp)
             the_arr.append(w)
+        else:
+            w=the_arr[0]
+            w.nsessions += 1
 
     # possibly update overall timing of w
     if s.timestamp < w.earliest:
