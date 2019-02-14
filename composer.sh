@@ -49,6 +49,7 @@ function usage()
     echo "-L - use logarithmic time"
     echo "-S - use scaled time"
     echo "-v - be verbose"
+    echo "-I - generate ignore list (DNS stubby DoT sessions)"
     echo "-w - produce .wav files as well as .midi (warning: slow, maybe buggy)"
 	exit 99
 }
@@ -77,6 +78,13 @@ SCALED=""
 # if you want scaled time on
 # SCALED=" -S "
 
+# how to generate notes
+NOTEGEN=" -N freq"
+# NOTEGEN=" -N table"
+
+# whether to generate a new ignore.addrs file
+GENIGNORE="no"
+
 # no hardcoded URL or URL filename
 URL=""
 
@@ -84,7 +92,7 @@ URL=""
 TDIR=""
 
 # options may be followed by one colon to indicate they have a required argument
-if ! options=$(getopt -s bash -o AnSu:i:sLkchwvf:l: -l allinone,noclean,scaled,url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
+if ! options=$(getopt -s bash -o IAnSu:i:sLkchwvf:l: -l ignore,allinone,noclean,scaled,url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
 then
 	# something went wrong, getopt will put out an error message for us
 	exit 1
@@ -107,6 +115,7 @@ do
         -A|--allinone) JUSTCLEAN="no"; ALLINONE=" -A ";;
         -L|--logtime) JUSTCLEAN="no"; LOGTIME=" -T ";;
         -S|--scaled) JUSTCLEAN="no"; SCALED=" -S ";;
+        -I|--ignore) GENIGNORE="yes ";;
         -v|--verbose) VERBOSE=" -v ";;
 		(--) shift; break;;
 		(-*) echo "$0: error - unrecognized option $1" 1>&2; exit 1;;
@@ -123,6 +132,12 @@ then
         echo "Just cleaning - exiting"
         exit 0
     fi
+fi
+
+
+if [[ "$SKIP" == "no" && "$GENIGNORE"=="yes" ]]
+then
+    $SRCDIR/ignore-stubby.sh
 fi
 
 # we'll do the actual pcap capture stuff later as we'll want the
@@ -230,7 +245,7 @@ then
         if [[ "$getpage_failed" == "no" ]]
         then
             # Do the analysis to generate the csvmidi files (and optonal .wavs)
-            $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $ALLINONE
+            $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $ALLINONE $NOTEGEN
         fi
 
     done
@@ -239,7 +254,7 @@ fi
 # One-shot analysis to generate the csvmidi files (and optonal .wavs)
 if [[ "$SKIP" == "no" && "$URL" == "" ]]
 then
-    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $ALLINONE
+    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $ALLINONE $NOTEGEN
 fi
 
 # TODO: finer grained control of which csvs to (re-)map to midis

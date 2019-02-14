@@ -104,10 +104,12 @@ class the_details():
             'overall_duration',
             'min_pdu',
             'max_pdu',
+            'num_sizes',
             'this_session',
+            'pdu_sizes',
             'notes'
             ]
-    def __init__(self,fname,src,nsessions=0,earliest=0,latest=-1,overall_duration=0,min_pdu=sys.maxsize,max_pdu=0,this_session=0):
+    def __init__(self,fname,src,nsessions=0,earliest=0,latest=-1,overall_duration=0,min_pdu=sys.maxsize,max_pdu=0,num_sizes=0,this_session=0):
         self.fname=fname
         self.src=src
         self.nsessions=nsessions
@@ -119,12 +121,14 @@ class the_details():
         self.overall_duration=overall_duration
         self.min_pdu=min_pdu
         self.max_pdu=max_pdu
+        self.num_sizes=num_sizes
+        self.pdu_sizes=set()
         self.this_session=this_session
         self.notes=[]
     def __str__(self):
         return("Details for " + self.fname + ": session: " + str(self.this_session) + " of " + str(self.nsessions) + "\n" + \
                 "\t" + "Start: " + str("%.02F"%self.earliest) + " End: " + str("%.02F"%self.latest) + " Dur: " + str("%.02f"%(self.overall_duration/1000)) + "\n" + \
-                "\t" + "Min PDU: " + str(self.min_pdu) + " Max PDU: " + str(self.max_pdu) + "\n" + \
+                "\t" + "Min PDU: " + str(self.min_pdu) + " Max PDU: " + str(self.max_pdu) + " Num sizes: " + str(self.num_sizes) + "\n" + \
                 "\t" + "Notes:\n" + '\n'.join(' '.join(map(str,note)) for note in self.notes))
 
 # midi instrument number
@@ -183,6 +187,10 @@ argparser.add_argument('-H','--high-note',
 argparser.add_argument('-i','--instrument',
                     type=int, dest='instrument',
                     help='midi instrument (-1:127; default: 0; -1 means built-in combo)')
+argparser.add_argument('-N','--notegen',
+                    dest='notegen',
+                    choices=['table','freq'],
+                    help='generate notes from "table" or "freq"')
 argparser.add_argument('-w','--wav',
                     help='beepy wav file output as well as midi',
                     action='store_true')
@@ -230,29 +238,11 @@ if args.instrument is not None:
 if args.label is not None:
     label=args.label
 
-def size2freqdur(size,minsize,maxsize,c2s_direction,lowfreq,highfreq,bucketno,nbuckets):
-    # map a (packet) size into a frequency and duration based on the low 
-    # and high frequecies, the number of buckets (TLS sessions involving 
-    # same src IP) and the packet direction 
-
-    # frequency range for this bucket
-    frange=(highfreq-lowfreq)/nbuckets
-    bottomstep=lowfreq+frange*bucketno
-    topstep=bottomstep+frange/2
-    if not c2s_direction:
-        # top half of range is for svr->client
-        bottomstep+=(frange/2)
-        topstep+=(frange/2)
-    freq=topstep-size/minsize
-    # duration is min 100ms and max 1s and is distributed evenly according 
-    # to min and max pdu sizes
-    if maxsize-minsize == 0:
-        # likely not what's wanted but let's see...
-        normalised=size
-    else:
-        normalised=(size-minsize)/(maxsize-minsize)
-    duration=int(min_note_length+normalised*(max_note_length-min_note_length))
-    return freq, duration
+if args.notegen is not None:
+    if args.notegen != "table" and args.notegen != "freq":
+        print("Error: -N [table|freq] needed, value given: |" + str(args.notegen) + "| - exiting")
+        print(args.notegen)
+        sys.exit(2)
 
 # make list of file names to process
 flist=set()
@@ -273,6 +263,29 @@ for onename in fodname.split():
 if len(flist)==0:
     print("No input files found - exiting")
     sys.exit(1)
+
+def size2freqdur(size,minsize,maxsize,c2s_direction,lowfreq,highfreq,channel,nchannels):
+    # map a (packet) size into a frequency and duration based on the low 
+    # and high frequecies, 
+
+    # duration is min 100ms and max 1s and is distributed evenly according 
+    # to min and max pdu sizes
+    if maxsize-minsize == 0:
+        # likely not what's wanted but let's see...
+        normalised=0.5
+    else:
+        normalised=(size-minsize)/(maxsize-minsize)
+    duration=int(min_note_length+normalised*(max_note_length-min_note_length))
+
+    frange=highfreq-lowfreq
+    bottomstep=lowfreq
+    topstep=bottomstep+frange/2
+    if not c2s_direction:
+        # top half of range is for svr->client
+        bottomstep+=(frange/2)
+        topstep+=(frange/2)
+    freq=bottomstep+normalised*(topstep-bottomstep)
+    return freq, duration
 
 def find_details(wavs,ip):
     '''
@@ -453,7 +466,30 @@ the_arr=[]
 # just for quick checking
 src_ips=[]
 
+# Check if file exists with IPs to ignore...
+# Mostly this is for ignoring DNS queries/answers that tend to  
+# muck up our noise/music (well, might be better when we've a
+# bit more work done)
+block_arr=[]
+bafile='ignore.addrs'
+try:
+    with open(bafile) as ba:
+        block_arr=ba.readlines()
+    block_arr = [x.strip() for x in block_arr]
+    if args.verbose:
+        print("Ignoring addresses from " + bafile)
+        print(block_arr)
+except:
+    pass
+if args.verbose:
+    if len(block_arr)==0:
+        print("No addresses to ignore from " + bafile + " (maybe file isn't there?)")
+
 for s in sessions:
+    if s.dst in block_arr or s.src in block_arr:
+        if args.verbose:
+            print("Ignoring session: " + s.src + "->" + s.dst)
+        continue
     if not args.allinone:
         w=find_details(the_arr,s.src)
         if w is None:
@@ -534,9 +570,20 @@ for s in sessions:
     maxspdu=int(max(m1,m2))
     if maxspdu > w.max_pdu:
         w.max_pdu=maxspdu
+    # figure out how many unique sizes we have in all 'w' sessions
+    # w.note[3] has sizes
+    w.pdu_sizes.add(tuple(s.s_psizes))
+    w.pdu_sizes.add(tuple(s.d_psizes))
+    w.num_sizes=len(w.pdu_sizes)
+    if args.verbose:
+        print("Size of Set: " + str(w.num_sizes))
 
 # loop again through sessions to pick up PDU details
 for s in sessions:
+    if s.dst in block_arr or s.src in block_arr:
+        if args.verbose:
+            print("Still ignoring session: " + s.src + "->" + s.dst)
+        continue
     if not args.allinone:
         w=find_details(the_arr,s.src)
     else:
@@ -547,7 +594,7 @@ for s in sessions:
         freq,dur=size2freqdur(s.s_psizes[i],w.min_pdu,w.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
         w.notes.append([freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,w.this_session])
     for i in range(0,len(s.d_psizes)):
-        freq,dur=size2freqdur(s.d_psizes[i],w.min_pdu,w.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
+        freq,dur=size2freqdur(s.d_psizes[i],w.min_pdu,w.max_pdu,False,lowest_note,highest_note,w.this_session,w.nsessions)
         w.notes.append([freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,w.this_session])
     if len(s.s_psizes)>0 or len(s.d_psizes)>0:
         # midi limit on channels/sessions seems to be max 16 is reliable
@@ -581,9 +628,18 @@ for w in the_arr:
     table={}
     for note in w.notes:
         # freq2note version
-        #notenum=freq2num(note[0])
-        # table version
+        # table version - default
         notenum=size2num(note[3],note[4],table)
+        if args.notegen == 'freq':
+            notenum=freq2num(note[0])
+        # let's move all notes up by N octaves where N is the channel number and
+        # do that modulo our bounds
+        low_num=freq2num(lowest_note)
+        high_num=freq2num(highest_note)
+        increment=(note[5]*7)%(high_num-low_num)
+        notenum = notenum + increment
+        if notenum>=high_num:
+            notenum -= (high_num-low_num)
         # linear time
         ontime=int(note[2])
         offtime=int(note[1]+note[2])

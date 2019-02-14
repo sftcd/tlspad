@@ -86,12 +86,16 @@ later.
     fail (blocking) from time to time. Killing the test browser seens to get 
     things to move along ok, albeit we miss that measurement.
 
+- [ignore-stubby.sh](ignore-stubby.sh) generates (or updates) the ``ignore.addrs``
+file, that causes ``Tls2Music.py`` to skip those addresses when making music.
+Including those makes for more boring sound:-)
+
 - [playem.sh](playem.sh) is just a quick script to use timidity to play all the 
   ``.midi`` files in the current directory
 
 ## Tools used
 
-Notes made while figuring out what to use. These aren't really organised, but
+Notes made while figuring out `what to use. These aren't really organised, but
 are just so's I can go back to something later if I wanna.
 
 ## General pcap processing
