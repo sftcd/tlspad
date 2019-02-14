@@ -84,6 +84,9 @@ later.
     - There're a load of installs needed to get all that to work, I'll document 'em when 
     I set this up on a 2nd box and have to re-do 'em.
 
+- [playem.sh](playem.sh) is just a quick script to use timidity to play all the 
+  ``.midi`` files in the current directory
+
 
 ## Tools used
 
