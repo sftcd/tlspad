@@ -24,8 +24,8 @@ The argument is actually fairly simple:
 - if either side wants to benefit from ESNI, 
 - ... they both need to pad more/better than just ESNI  
 
-Note: we do not yet have evidence that sites do/don't sound different 
-enough for human ears to pick that up. Be fun to find out though!
+Note: we do not yet have evidence that sites do/don't, in general, sound different 
+enough for human ears to pick that up in some reliable way. Be fun to find out though!
 
 ## Tools here
 
@@ -34,9 +34,12 @@ later.
 
 - [dumper.sh](dumper.sh) is a bash script that's a small wrapper on tshark or tcpdump
     - [functions.sh](functions.sh) has some bash utility stuff I tend to re-use
+
 - [TlsPadFncs.py](TlsPadFncs.py) has classes and functions that are used by...
+
 - [TLSPacketSizes.py](TLSPacketSizes.py) does some simple per-session counts of TLS packet sizes in PCAP files 
     - pyshark still now and then says tshark crashed, will just live with it for now
+
 - [Tls2Music.py](Tls2Music.py) takes the packets sizes/times and turns
     those to sound, either a .midi or .wav file or both.
     - that sorta seems to work, state is I need to check accuracy (it's suspect:-)
@@ -44,10 +47,11 @@ later.
         - re-hit keys, move up/down one if a key/tone is playing now or
         otherwise avoid collisions (but pianos only have 88 keys so we
         can't avoid all, in general) - might not need it so much now, with
-        log time and supression it may be less of a deal
+        supression it seems less of a deal
+
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music
-    - A bug just seen that I guess may be related to selenium (no idea of cause or effect;-): 
+    - A bug recently seen that I guess may be related to selenium (no idea of cause or effect;-): 
 
             *** BUG ***
             In pixman_region32_init_rect: Invalid rectangle passed
@@ -81,12 +85,9 @@ later.
     - The "-u" option uses selenium to fire up a test browser but that seems to
     fail (blocking) from time to time. Killing the test browser seens to get 
     things to move along ok, albeit we miss that measurement.
-    - There're a load of installs needed to get all that to work, I'll document 'em when 
-    I set this up on a 2nd box and have to re-do 'em.
 
 - [playem.sh](playem.sh) is just a quick script to use timidity to play all the 
   ``.midi`` files in the current directory
-
 
 ## Tools used
 
@@ -112,8 +113,10 @@ I tried:
 
 ## pcap anonymisation
 
-Next is to try anonymise the pcap files, in case I wanna publish something
-or someone else wants to. There's a [wireshark tools page](https://wiki.wireshark.org/Tools#Capture_file_anonymization),
+I still want to try anonymise the pcap files, in case I wanna publish something
+or someone else wants to. For now, the .midi files can be anonymous or else
+just identify a URL, which is probably ok, but better to do better. 
+There's a [wireshark tools page](https://wiki.wireshark.org/Tools#Capture_file_anonymization),
 and a [caida page](https://www.caida.org/tools/taxonomy/anontaxonomy.xml) let's see what we find there. 
 At first glance, a lot of these don't appear to be well-maintained.
 
