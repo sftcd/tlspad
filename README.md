@@ -47,6 +47,12 @@ later.
         log time and supression it may be less of a deal
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music
+    - A bug just seen that I guess may be related to selenium (no idea of cause or effect;-): 
+
+            *** BUG ***
+            In pixman_region32_init_rect: Invalid rectangle passed
+            Set a breakpoint on '_pixman_log_error' to debug
+
 - [composer.sh](composer.sh) is a wrapper for the above:
 
             $ ./composer.sh -h 
