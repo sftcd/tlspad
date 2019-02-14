@@ -77,6 +77,14 @@ on that path that I should fix, but I've (probably) not yet;-)
             $ sudo apt install midicsv
             $ sudo apt install timidity
 
+	- timidity may need some soundfonts as well, I followed [these instructions](https://unix.stackexchange.com/questions/97883/timidity-no-instrument-mapped-to-tone-bank-0-no-idea-which-one-is-missing) (more or less)...
+
+			$ sudo apt install fluid-soundfont-gm
+			$ sudo vi /etc/timidity/timidity.cfg
+			... comment out the existing source line using freepats.cfg ...
+			... uncomment the source line with fluidr3_gm.cfg ...
+			$ sudo service timidity restart
+
     - So if you take the CSV file from  step 3 you should be able to do:
 
             $ csvmidi foo.midi.csv foo.midi
