@@ -82,7 +82,7 @@ SCALED=""
 NOTEGEN=" -N freq"
 # NOTEGEN=" -N table"
 
-# whether to generate a new ignore.addrs file
+# whether to generate a new ignore.addrs file, default to yes
 GENIGNORE="no"
 
 # no hardcoded URL or URL filename
@@ -135,11 +135,6 @@ then
 fi
 
 
-if [[ "$SKIP" == "no" && "$GENIGNORE"=="yes" ]]
-then
-    $SRCDIR/ignore-stubby.sh
-fi
-
 # we'll do the actual pcap capture stuff later as we'll want the
 # option of running a headless browser and doing it all locally, or, 
 # provding some UI prompts for the case where the user runs a real 
@@ -172,6 +167,11 @@ then
         exit 1
     fi
     cd $TDIR
+
+    if [[ "$GENIGNORE"=="yes" ]]
+    then
+        $SRCDIR/ignore-stubby.sh
+    fi
     for url in $url_list
     do
         # make sure its https, and barf otherwise
@@ -254,6 +254,10 @@ fi
 # One-shot analysis to generate the csvmidi files (and optonal .wavs)
 if [[ "$SKIP" == "no" && "$URL" == "" ]]
 then
+    if [[ "$GENIGNORE"=="yes" ]]
+    then
+        $SRCDIR/ignore-stubby.sh
+    fi
     $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $ALLINONE $NOTEGEN
 fi
 

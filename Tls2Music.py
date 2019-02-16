@@ -134,14 +134,16 @@ class the_details():
 # midi instrument number
 # there's a list at https://www.midi.org/specifications/item/gm-level-1-sound-set
 # that list may be offset by 1, i.e. we start at 0
+# channel 10 is drums of various kinds with restrictions on what note numbers can be used
 instrumentnum=1 # piano
 #instrumentnum=19 # choral organ
-# TODO: add an array of 16 instruments, one per channel
 instarr=[ 
         0, # acoustic grand piano
-        9, # glockenspiel 
+        3, # honky-tonk piano
+        # 9, # glockenspiel 
         21, # accordian
-        25, # steel guitar
+        24, # acoustic guitar
+        # 25, # steel guitar
 
         33, # electric bass
         40, # violin
@@ -150,9 +152,9 @@ instarr=[
 
         57, # trombone
         66, # tenor sax
-            # channel 10 is drums of various kinds with restrictions on what note numbers can be used
         71, # clarinet
-        79, # ocarina
+        72, # flute
+        # 79, # ocarina
 
         105, # banjo
         109, # bag pipe
@@ -490,6 +492,8 @@ for s in sessions:
         if args.verbose:
             print("Ignoring session: " + s.src + "->" + s.dst)
         continue
+    if args.verbose:
+        print("Counting session: " + s.src + "->" + s.dst)
     if not args.allinone:
         w=find_details(the_arr,s.src)
         if w is None:

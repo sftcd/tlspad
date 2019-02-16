@@ -46,7 +46,7 @@ if [ -f $IGFILE ]
 then
     for addr in $IPs 
     do
-        echo $addr
+        #echo $addr
         hitcount=`grep -c $addr $IGFILE` 
         if [[ "$hitcount" == "0" ]]
         then
