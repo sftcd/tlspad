@@ -22,7 +22,6 @@
 #
 
 # Grab a specific web site. When done... exit.
-# We decide we're done based on TODO: figure that out
 
 # This is just to trigger traffic that ends up captured by tcpdump
 # or wireshark for later analysis. If other things are happening on
@@ -45,14 +44,35 @@
 # Not sure if the order there's correct but roughly
 
 from selenium import webdriver
-import time
-import sys
+import time,sys,os,re,glob
+
+home=os.environ['HOME']
+mozpre="/.mozilla/firefox/"
+tp_names=glob.glob(os.path.join(home+mozpre,"*.Testing"))
+
+argparser=argparse.ArgumentParser(description='Grab a URL using selenium')
+argparser.add_argument('-u','--url',     
+                    dest='url',
+                    help='URL to fetch')
+argparser.add_argument('-v','--verbose',
+                    help='produce more output',
+                    action='store_true')
+args=argparser.parse_args()
+
+if args.url is None:
+    print("No URL supplied - exiting")
+    sys.exit(1)
 
 def main():
-    browser = webdriver.Firefox()
+    if len(tp_names)>=1:
+        if args.verbose:
+            print("Using profile: " + tp_names[0])
+        browser = webdriver.Firefox(tp_names[0])
+    else:
+        browser = webdriver.Firefox()
 
     #browser shall call the URL
-    browser.get(sys.argv[1])
+    browser.get(args.url)
     time.sleep(10)
     browser.quit()
 

@@ -209,7 +209,7 @@ then
         # that fails sometimes (blocking, apparently) so we want
         # to force a fail after a while, 2mins in our case
         getpage_failed="no"
-        timeout 120s $SRCDIR/getpage.py $url
+        timeout 120s $SRCDIR/getpage.py -u $url $VERBOSE
         if (( $? != 0 ))
         then
             getpage_failed="yes"

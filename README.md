@@ -51,11 +51,22 @@ later.
 
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music
-    - A bug recently seen that I guess may be related to selenium (no idea of cause or effect;-): 
+    - Looks like selenium/geckodriver is causing some spurious 
+    connections, e.g. to Moz telemetry. Not sure if I should include
+    or drop these really. Not part of target URL site, but are part
+    of default browsing experience most likely. Plan: Try figure how to
+    not make these connecctions then decide later.
+        - Added a check internally - if a FF profile directory
+        matching ``$HOME/.mozilla/firefox/*.Testing`` exists then 
+        the first of those is used as the FF profile when starting.
+        Have to see if that honors the "no reporting" privacy
+        settings in FF.
+    - A bug seen a while back that I guess may be related to selenium (no idea of cause or effect;-): 
 
             *** BUG ***
             In pixman_region32_init_rect: Invalid rectangle passed
             Set a breakpoint on '_pixman_log_error' to debug
+
 
 - [composer.sh](composer.sh) is a wrapper for the above:
 
