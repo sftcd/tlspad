@@ -168,7 +168,7 @@ then
     fi
     cd $TDIR
 
-    if [[ "$GENIGNORE"=="yes" ]]
+    if [[ "$GENIGNORE" == "yes" ]]
     then
         $SRCDIR/ignore-stubby.sh
     fi
@@ -254,7 +254,7 @@ fi
 # One-shot analysis to generate the csvmidi files (and optonal .wavs)
 if [[ "$SKIP" == "no" && "$URL" == "" ]]
 then
-    if [[ "$GENIGNORE"=="yes" ]]
+    if [[ "$GENIGNORE" == "yes" ]]
     then
         $SRCDIR/ignore-stubby.sh
     fi
