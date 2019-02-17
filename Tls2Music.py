@@ -24,11 +24,7 @@
 # Work-in-progress, may be abandonded but let's try and see...
 
 # Produce a set of .wav and .midi files from the TLS sessions seen in a pcap
-# Very much a first cut. And possibly useless, but let's see...
 
-# Goals:
-# analyse the TLS sessions to get APDU packets sizes and times
-# for each TLS session from a given source IP generate a .wav file
 # each packet is turned into a sound via parameters
 # parameters:
 # - sample freq, default: 44100Hz (audio CD)
@@ -37,21 +33,8 @@
 # - overall freq range: default: (bottom=30Hz, top=4000Hz)
 #     - based on: https://en.wikipedia.org/wiki/Piano_key_frequencies
 
-# Derived values, for each source IP/wav file:
-# - each destination IP gets a range of frequencies, 
-#   - divide overall freq range into equal chunks, per dest IP
-#   - bottom half or per-dest range for src->dst, top half for dst->src
-#   - packet size used to select frequency within range
-#   - packet size used to select sound duration based on bandwidth
-
-# Audio sample at time t is the average of notes at that time
-# (maybe, have to see...)
-
-# Might try use https://github.com/ttm/mass (via pip install music) and
-# see if it works or not...
-
 import traceback,math
-import os,sys,argparse,re,random,time
+import os,sys,argparse,re,random,time,ipaddress
 import pyshark
 from TlsPadFncs import *
 
@@ -91,27 +74,24 @@ dowav=False
 # label for output files
 label=None
 
-class the_details():
+class tls_session_set():
     '''
-    Each .wav,.midi file etc will have these parameters
+    Each set of TLS sessions will have these parameters
     '''
     __slots__ = [
-            'fname',
-            'src',
-            'nsessions',
-            'earliest',
-            'latest',
-            'overall_duration',
-            'min_pdu',
-            'max_pdu',
-            'num_sizes',
-            'this_session',
-            'pdu_sizes',
-            'notes'
+            'fname', # a base name for a file when we save a rendering
+            'selector', # the selector used to group sessions, e.g. src IP
+            'nsessions', # number of sessions
+            'earliest', # overall earliest date
+            'latest', # overall latest date
+            'overall_duration', # obvious:-)
+            'this_session', # index of this in an array of similar things (could be taken out!)
+            'notes', # the set of notes in a musical rendering
+            'sessions'
             ]
-    def __init__(self,fname,src,nsessions=0,earliest=0,latest=-1,overall_duration=0,min_pdu=sys.maxsize,max_pdu=0,num_sizes=0,this_session=0):
+    def __init__(self,fname="",selector=None,nsessions=0,earliest=sys.maxsize,latest=-1,overall_duration=0,this_session=0):
         self.fname=fname
-        self.src=src
+        self.selector=selector
         self.nsessions=nsessions
         self.earliest=earliest
         if latest is -1:
@@ -119,16 +99,12 @@ class the_details():
         else:
             self.latest=latest
         self.overall_duration=overall_duration
-        self.min_pdu=min_pdu
-        self.max_pdu=max_pdu
-        self.num_sizes=num_sizes
-        self.pdu_sizes=set()
         self.this_session=this_session
         self.notes=[]
+        self.sessions=[]
     def __str__(self):
         return("Details for " + self.fname + ": session: " + str(self.this_session) + " of " + str(self.nsessions) + "\n" + \
-                "\t" + "Start: " + str("%.02F"%self.earliest) + " End: " + str("%.02F"%self.latest) + " Dur: " + str("%.02f"%(self.overall_duration/1000)) + "\n" + \
-                "\t" + "Min PDU: " + str(self.min_pdu) + " Max PDU: " + str(self.max_pdu) + " Num sizes: " + str(self.num_sizes) + "\n" + \
+                "\t" + "Earliest: " + str("%.02F"%self.earliest) + " Latest: " + str("%.02F"%self.latest) + " Dur: " + str("%.02f"%(self.overall_duration/1000)) + "\n" + \
                 "\t" + "Notes:\n" + '\n'.join(' '.join(map(str,note)) for note in self.notes))
 
 # midi instrument number
@@ -162,109 +138,34 @@ instarr=[
         103, # FX 8 (sci-fi) (huh?)
         ]
 
+# Functions
 
-# command line arg handling 
-argparser=argparse.ArgumentParser(description='Turn some pcaps into music')
-argparser.add_argument('-l','--label',     
-                    dest='label',
-                    help='basename label for midi.csv and .wav output files')
-argparser.add_argument('-f','--file',     
-                    dest='fodname',
-                    help='PCAP file or directory name')
-argparser.add_argument('-F','--freq',
-                    dest='freq',
-                    help='Sample frequency (default: 44100Hz)')
-argparser.add_argument('-m','--min-note',
-                    dest='min_note',
-                    help='minumum note length (100ms)')
-argparser.add_argument('-M','--max-note',
-                    dest='max_note',
-                    help='maximum note length (1s)')
-argparser.add_argument('-L','--low-note',
-                    dest='low_note',
-                    help='lowest note (default: 30Hz)')
-argparser.add_argument('-H','--high-note',
-                    dest='high_note',
-                    help='highest note (default: 4000Hz)')
-argparser.add_argument('-i','--instrument',
-                    type=int, dest='instrument',
-                    help='midi instrument (-1:127; default: 0; -1 means built-in combo)')
-argparser.add_argument('-N','--notegen',
-                    dest='notegen',
-                    choices=['table','freq'],
-                    help='generate notes from "table" or "freq"')
-argparser.add_argument('-w','--wav',
-                    help='beepy wav file output as well as midi',
-                    action='store_true')
-argparser.add_argument('-v','--verbose',
-                    help='produce more output',
-                    action='store_true')
-argparser.add_argument('-T','--logtime',     
-                    help='use logarithmic time',
-                    action='store_true')
-argparser.add_argument('-S','--scaledtime',     
-                    help='use scaled time (read code for details:-)',
-                    action='store_true')
-argparser.add_argument('-A','--allinone',     
-                    help='produce only one midi file for all sessions',
-                    action='store_true')
-argparser.add_argument('-s','--suppress-silence',     
-                    type=int, dest='suppress_silence',
-                    help='suppress <num> ms of no-change (not really silence but good enough')
-args=argparser.parse_args()
-
-if args.fodname is not None:
-    fodname=args.fodname
-
-if args.freq is not None:
-    sample_freq=args.freq
-
-if args.min_note is not None:
-    min_note_length=args.min_note
-
-if args.max_note is not None:
-    max_note_length=args.max_note
-
-if args.low_note is not None:
-    lowest_note=args.low_note
-
-if args.high_note is not None:
-    highest_note=args.high_note
-
-if args.instrument is not None:
-    if args.instrument < -1 or args.instrument >127:
-        print("Error: instruments must be integers from 0 to 127")
-        sys.exit(1)
-    instrumentnum=args.instrument
-
-if args.label is not None:
-    label=args.label
-
-if args.notegen is not None:
-    if args.notegen != "table" and args.notegen != "freq":
-        print("Error: -N [table|freq] needed, value given: |" + str(args.notegen) + "| - exiting")
-        print(args.notegen)
-        sys.exit(2)
-
-# make list of file names to process
-flist=set()
-# input string could be space sep list of file or directory names
-for onename in fodname.split():
-    # if onename is a directory get all '*.pcap[number]' file names therin
-    if os.path.isdir(onename):
-        pass
-        tfiles = [f for f in os.listdir(onename) if re.match(r'.*\.pcap[0-9]*', f)]
-        if len(tfiles)!=0:
-            for t in tfiles:
-                flist.add(onename+"/"+t)
-    else:
-        # if onename is not a directory add to list if file exists
-        if os.path.exists(onename):
-            flist.add(onename)
-
-if len(flist)==0:
-    print("No input files found - exiting")
-    sys.exit(1)
+def selector_match(s,sels,sl=None):
+    '''
+    check if TLS session matches selector
+    selector is a (list of) IP prefixes (v4/v6)
+    '''
+    #print("Sels="+str(sels)+" type(sels): " + str(type(sels)) + " sl: " + str(sl))
+    if type(sels)==str and sels=='all': 
+        #print("R1")
+        return True
+    if type(sels)==str and sels=='src' and sl is not None and sl.selector==s.src: 
+        #print("R2")
+        return True
+    if type(sels)==str and sels=='dst' and sl is not None and sl.selector==s.dst: 
+        #print("R3")
+        return True
+    if type(sels)==list:
+        for sel in sels:
+            ipsel=ipaddress(sel)
+            if s.src in ipsel:
+                #print("R4")
+                return True
+            if s.dst in ipsel:
+                #print("R5")
+                return True
+    #print("R6")
+    return False
 
 def size2freqdur(size,minsize,maxsize,c2s_direction,lowfreq,highfreq,channel,nchannels):
     # map a (packet) size into a frequency and duration based on the low 
@@ -289,12 +190,12 @@ def size2freqdur(size,minsize,maxsize,c2s_direction,lowfreq,highfreq,channel,nch
     freq=bottomstep+normalised*(topstep-bottomstep)
     return freq, duration
 
-def find_details(wavs,ip):
+def find_set(s,session_sets):
     '''
-    search for the_details mwith matching src IP
+    search for tls_session_set mwith matching IPs
     '''
-    for w in wavs:
-        if w.src==ip:
+    for w in session_sets:
+        if selector_match(s,w.selector):
             return w
     return None
 
@@ -304,7 +205,7 @@ def init_key():
     '''
     return open("/dev/urandom","rb").read(32)
 
-def hash_name(key,fname,src):
+def hash_name(key,fname,src,allinone):
     '''
     outpuf file are either labelled or anonymised
     - labels are like "<label>-src-ip.midi.csv", anonymised are...
@@ -323,7 +224,7 @@ def hash_name(key,fname,src):
         # (they'll occur in IPv6 addresses)
         psrc=src.replace(":","")
         hmacval = hmac.new(key, msg=src.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
-        if args.allinone:
+        if allinone:
             rv=str(int(time.time()))+"-"+label+"-all-"+hmacval[0:8]
         else:
             ipver="ipv4"
@@ -446,7 +347,132 @@ def scaletime(x):
         #print("Mapped4: "+str(x)+" to: "+str(mapped)) 
     return mapped
 
+
 # main line code...
+
+# command line arg handling 
+argparser=argparse.ArgumentParser(description='Turn some pcaps into music')
+argparser.add_argument('-l','--label',     
+                    dest='label',
+                    help='basename label for midi.csv and .wav output files')
+argparser.add_argument('-f','--file',     
+                    dest='fodname',
+                    help='PCAP file or directory name')
+argparser.add_argument('-F','--freq',
+                    dest='freq',
+                    help='Sample frequency (default: 44100Hz)')
+argparser.add_argument('-m','--min-note',
+                    dest='min_note',
+                    help='minumum note length (100ms)')
+argparser.add_argument('-M','--max-note',
+                    dest='max_note',
+                    help='maximum note length (1s)')
+argparser.add_argument('-L','--low-note',
+                    dest='low_note',
+                    help='lowest note (default: 30Hz)')
+argparser.add_argument('-H','--high-note',
+                    dest='high_note',
+                    help='highest note (default: 4000Hz)')
+argparser.add_argument('-i','--instrument',
+                    type=int, dest='instrument',
+                    help='midi instrument (-1:127; default: 0; -1 means built-in combo)')
+argparser.add_argument('-N','--notegen',
+                    dest='notegen',
+                    choices=['table','freq'],
+                    help='generate notes from "table" or "freq"')
+argparser.add_argument('-w','--wav',
+                    help='beepy wav file output as well as midi',
+                    action='store_true')
+argparser.add_argument('-v','--verbose',
+                    help='produce more output',
+                    action='store_true')
+argparser.add_argument('-T','--logtime',     
+                    help='use logarithmic time',
+                    action='store_true')
+argparser.add_argument('-S','--scaledtime',     
+                    help='use scaled time (read code for details:-)',
+                    action='store_true')
+argparser.add_argument('-s','--suppress-silence',     
+                    type=int, dest='suppress_silence',
+                    help='suppress <num> ms of no-change (not really silence but good enough')
+argparser.add_argument('-V','--vantage',
+                    dest='vantage',
+                    help='select output sets based on vantage point')
+args=argparser.parse_args()
+
+if args.fodname is not None:
+    fodname=args.fodname
+
+if args.freq is not None:
+    sample_freq=args.freq
+
+if args.min_note is not None:
+    min_note_length=args.min_note
+
+if args.max_note is not None:
+    max_note_length=args.max_note
+
+if args.low_note is not None:
+    lowest_note=args.low_note
+
+if args.high_note is not None:
+    highest_note=args.high_note
+
+if args.instrument is not None:
+    if args.instrument < -1 or args.instrument >127:
+        print("Error: instruments must be integers from 0 to 127")
+        sys.exit(1)
+    instrumentnum=args.instrument
+
+if args.label is not None:
+    label=args.label
+
+if args.notegen is not None:
+    if args.notegen != "table" and args.notegen != "freq":
+        print("Error: -N [table|freq] needed, value given: |" + str(args.notegen) + "| - exiting")
+        print(args.notegen)
+        sys.exit(2)
+
+selectors=None
+if args.vantage is not None:
+    if args.vantage=='all':
+        selectors='all'
+    elif args.vantage=='src':
+        selectors='src'
+    elif args.vantage=='dst':
+        selectors='dst'
+    else: 
+        # check if file-name, that exists and has a set of prefixes
+        # we'll ignore any non-matching sessions
+        try:
+            with open(args.vantage) as vf:
+                selectors=vf.readlines()
+            selectors = [x.strip() for x in selectors]
+        except:
+            print("Error reading IP prefixes from " + args.vantage + " - exiting")
+            sys.exit(2)
+    if args.verbose:
+        print("Vantage point set, selectors: " + str(selectors))
+
+# make list of file names to process
+flist=set()
+# input string could be space sep list of file or directory names
+for onename in fodname.split():
+    # if onename is a directory get all '*.pcap[number]' file names therin
+    if os.path.isdir(onename):
+        pass
+        tfiles = [f for f in os.listdir(onename) if re.match(r'.*\.pcap[0-9]*', f)]
+        if len(tfiles)!=0:
+            for t in tfiles:
+                flist.add(onename+"/"+t)
+    else:
+        # if onename is not a directory add to list if file exists
+        if os.path.exists(onename):
+            flist.add(onename)
+
+if len(flist)==0:
+    print("No input files found - exiting")
+    sys.exit(1)
 
 # our array of TLS sessions
 if args.verbose:
@@ -463,15 +489,21 @@ if args.verbose:
 # a per-run hmac secret, just used for file name hashing so not really sensitive
 hmac_secret=None
 
-# we'll keep a the_detail for each
+# we'll keep an array of tls_session_set values
 the_arr=[]
-# just for quick checking
-src_ips=[]
-
+if selectors is not None:
+    # just one set of tls sessions so, whatever determined by selectors
+    s=tls_session_set()
+    s.selector=selectors
+    the_arr.append(s)
+    
 # Check if file exists with IPs to ignore...
 # Mostly this is for ignoring DNS queries/answers that tend to  
-# muck up our noise/music (well, might be better when we've a
-# bit more work done)
+# muck up our noise/music and that'd only be seen from some
+# vantage points, OTOH, if we can't see the DNS queries/answers
+# then we'd likely also not see the JS code being loaded from
+# 3rd party sites, so probably won't use much, but keep code
+# just in case
 block_arr=[]
 bafile='ignore.addrs'
 try:
@@ -490,49 +522,38 @@ if args.verbose:
 for s in sessions:
     if s.dst in block_arr or s.src in block_arr:
         if args.verbose:
-            print("Ignoring session: " + s.src + "->" + s.dst)
+            print("Ignoring blocked session: " + s.src + "->" + s.dst)
         continue
-    if args.verbose:
-        print("Counting session: " + s.src + "->" + s.dst)
-    if not args.allinone:
-        w=find_details(the_arr,s.src)
-        if w is None:
-            wname=hash_name(hmac_secret,s.fname,s.src)
-            src_ips.append(s.src)
-            try:
-                #print("Option1: " + str(s.end_time.timestamp()))
-                w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp,latest=s.end_time.timestamp())
-            except:
-                #print("Option2: " + " val: " + str(s.end_time))
-                w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp)
-            the_arr.append(w)
-        else:
-            w.nsessions += 1
-    else:
-        if len(the_arr)==0:
-            wname=hash_name(hmac_secret,s.fname,s.src)
-            try:
-                #print("Option3: " + str(s.end_time.timestamp()))
-                w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp,latest=s.end_time.timestamp())
-            except:
-                #print("Option4: " + " val: " + str(s.end_time))
-                w=the_details(wname,s.src,nsessions=1,earliest=s.timestamp)
-            the_arr.append(w)
-        else:
-            w=the_arr[0]
-            w.nsessions += 1
-
-    # possibly update overall timing of w
-    if s.timestamp < w.earliest:
-        #print("Re-assign early from:" + str(w.earliest) + " to: " + str(s.timestamp) + " diff: " + str(w.earliest-s.timestamp))
+    w=None
+    for sl in the_arr:
+        if w is None and selector_match(s,selectors,sl.selector):
+            if args.verbose:
+                print("Selecting session: " + s.src + "->" + s.dst)
+            w=sl
+    if w is None and type(selectors)==list:
+        if args.verbose:
+            print("Skipping over session: " + s.src + "->" + s.dst)
+        continue
+    if w is None and type(selectors)==str and (selectors=='src' or selectors=='dst'):
+        w=tls_session_set()
+        w.selector=selectors
+        the_arr.append(w)
+    if w is None:
+        print("Oops - w is None when it shouldn't be")
+        sys.exit(3)
+    if w.fname=="":
+        # initialise some
+        wname=hash_name(hmac_secret,s.fname,s.src,type(selectors)==str and selectors=='all')
+        w.fname=wname
+    if w.earliest > s.timestamp:
         w.earliest=s.timestamp
     try:
-        # end_time might be 0 in which case nothing to do
-        if s.end_time.timestamp() > w.latest:
-            #print("Re-assign late from:" + str(w.latest) + " to: " + str(s.end_time.timestamp()) + " diff: " + str(s.end_time.timestamp()-w.latest))
-            w.latest=s.end_time.timestamp()
+        if w.latest < s.end_time.timestamp:
+            w.latest=s.end_time.timestamp
     except:
+        # end_time might not be set yet, that's ok
         pass
+    w.nsessions += 1
 
     # possibly extend duration based on last packet timing
     if len(s.s_delays) > 0 :
@@ -546,41 +567,8 @@ for s in sessions:
     lt=max(lst,lrt)
     if lt>w.latest:
         w.latest=lt
-
     # update overall duration
     w.overall_duration=w.latest-w.earliest
-
-    # check if we've new min/max PDU sizes
-    if len(s.s_psizes) > 0:
-        m1=min(s.s_psizes)
-    else:
-        m1=sys.maxsize
-    if len(s.d_psizes) > 0:
-        m2=min(s.d_psizes)
-    else:
-        m2=sys.maxsize
-    minspdu=int(min(m1,m2))
-    if minspdu < w.min_pdu:
-        w.min_pdu=minspdu
-
-    if len(s.s_psizes) > 0:
-        m1=max(s.s_psizes)
-    else:
-        m1=0
-    if len(s.d_psizes) > 0:
-        m2=max(s.d_psizes)
-    else:
-        m2=0
-    maxspdu=int(max(m1,m2))
-    if maxspdu > w.max_pdu:
-        w.max_pdu=maxspdu
-    # figure out how many unique sizes we have in all 'w' sessions
-    # w.note[3] has sizes
-    w.pdu_sizes.add(tuple(s.s_psizes))
-    w.pdu_sizes.add(tuple(s.d_psizes))
-    w.num_sizes=len(w.pdu_sizes)
-    if args.verbose:
-        print("Size of Set: " + str(w.num_sizes))
 
 # loop again through sessions to pick up PDU details
 for s in sessions:
@@ -588,17 +576,14 @@ for s in sessions:
         if args.verbose:
             print("Still ignoring session: " + s.src + "->" + s.dst)
         continue
-    if not args.allinone:
-        w=find_details(the_arr,s.src)
-    else:
-        w=the_arr[0]
+    w=find_set(s,the_arr)
     if w is None:
         raise ValueError('No details for session: ' + s.sess_id)
     for i in range(0,len(s.s_psizes)):
-        freq,dur=size2freqdur(s.s_psizes[i],w.min_pdu,w.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
+        freq,dur=size2freqdur(s.s_psizes[i],s.min_pdu,s.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
         w.notes.append([freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,w.this_session])
     for i in range(0,len(s.d_psizes)):
-        freq,dur=size2freqdur(s.d_psizes[i],w.min_pdu,w.max_pdu,False,lowest_note,highest_note,w.this_session,w.nsessions)
+        freq,dur=size2freqdur(s.d_psizes[i],s.min_pdu,s.max_pdu,False,lowest_note,highest_note,w.this_session,w.nsessions)
         w.notes.append([freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,w.this_session])
     if len(s.s_psizes)>0 or len(s.d_psizes)>0:
         # midi limit on channels/sessions seems to be max 16 is reliable
@@ -672,6 +657,13 @@ for w in the_arr:
         if args.scaledtime:
             ontime=scaletime(note[2])
             offtime=scaletime(note[1]+note[2])
+
+        if ontime < 0.0:
+            print("Weird ontime: " + str(ontime))
+            sys.exit(4)
+        if offtime < 0.0:
+            print("Weird offtime: " + str(offtime))
+            sys.exit(4)
 
         # odd structure here is so we can sort on time in a sec...
         # let's play with different velocities see what that does...

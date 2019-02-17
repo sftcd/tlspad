@@ -43,11 +43,6 @@ later.
 - [Tls2Music.py](Tls2Music.py) takes the packets sizes/times and turns
     those to sound, either a .midi or .wav file or both.
     - that sorta seems to work, state is I need to check accuracy (it's suspect:-)
-    - a remaining TODO:
-        - re-hit keys, move up/down one if a key/tone is playing now or
-        otherwise avoid collisions (but pianos only have 88 keys so we
-        can't avoid all, in general) - might not need it so much now, with
-        supression it seems less of a deal
 
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music
@@ -61,12 +56,18 @@ later.
         the first of those is used as the FF profile when starting.
         Have to see if that honors the "no reporting" privacy
         settings in FF.
+        - looks like FF telemetry <blah>.cdn.mozilla.net has nearby
+        IPs and some similar DNS names exist in FF about:config
+        - Doesn't seem to have done the biz, still seeing connection to
+        some unexpected oddball IPs, despite using profile with telemetry
+        off
+        - Leave it for now, hope to learn more about it as we go
+
     - A bug seen a while back that I guess may be related to selenium (no idea of cause or effect;-): 
 
             *** BUG ***
             In pixman_region32_init_rect: Invalid rectangle passed
             Set a breakpoint on '_pixman_log_error' to debug
-
 
 - [composer.sh](composer.sh) is a wrapper for the above:
 
@@ -76,9 +77,9 @@ later.
             Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:
             -h - produce this
             -u - URL to access, grab, analyse and turn into midi file
-                 This uses: '-l <DNSname> -s 1000 -i -1 -A'
+                This uses: '-l <DNSname> -s 1000 -i -1 -V all'
             -f - name of capture file or directory for capture files (default is '.')
-            -A - map all pcaps into one music/noise file output
+            -V - vantage point/selectors, can be [all|src|dst|file-name]
             -i - midi instrument (-1:127; default: 0; -1 means built-in combo)
             -l - label to use for files (will be anonymous hash otherwise)
             -s - suppress silence or noise that doesn't change for the specified limit (in ms)
@@ -88,6 +89,7 @@ later.
             -L - use logarithmic time
             -S - use scaled time
             -v - be verbose
+            -I - generate ignore list (DNS stubby DoT sessions)
             -w - produce .wav files as well as .midi (warning: slow, maybe buggy)
 
     - If you give that a ``-u URL`` or ``-u filename`` (with one URL/line in that file),
@@ -103,6 +105,33 @@ Including those makes for more boring sound:-)
 
 - [playem.sh](playem.sh) is just a quick script to use timidity to play all the 
   ``.midi`` files in the current directory
+
+## Plan for re-factoring
+
+This code is very messy at the moment and badly needed a tidy-up/refactoring.
+I've started that.
+
+- Provide more flexibility in terms of which TLS sessions
+  to in/exclude in a sound file. What makes sense depends on 
+  the presumed vantage point. 
+    - client-local n/w - all in one (tested, remainder tbd)
+    - server-local or middle n/w - IP range(s)
+    - each src IP in one
+    - each dsg IP in one
+
+- figure out/guess some b/w number
+    - 1MB/s (8Mbps) as a default 
+    - @ 44.1KHz sample rate that means 181 rx/tx'd bits/audio-sample
+    - base note duration on that
+
+- avoid re-hit keys: move up/down one if a key/tone is playing now or
+    otherwise avoid collisions (but pianos only have 88 keys so we
+    can't avoid all, in general) 
+
+- play some more with the python ``music`` library which seems to
+be related to [mass](https://github.com/ttm/mass) (install 
+via ``pip install music``) - that'd likely supercede the current
+``.wav`` file generation code that produces modem noise.
 
 ## Tools used
 

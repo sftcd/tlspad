@@ -44,7 +44,7 @@
 # Not sure if the order there's correct but roughly
 
 from selenium import webdriver
-import time,sys,os,re,glob
+import time,sys,os,re,glob,argparse
 
 home=os.environ['HOME']
 mozpre="/.mozilla/firefox/"

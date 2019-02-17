@@ -48,6 +48,9 @@ class TLSSession():
             'cvsize',
             'chsize',
             'shsize',
+            'min_pdu',
+            'max_pdu',
+            'num_sizes',
             's_psizes',
             's_delays',
             'd_psizes',
@@ -69,6 +72,9 @@ class TLSSession():
         self.cvsize=0 # cert verify size if seen in h/s
         self.chsize=0 # ClientHello size
         self.shsize=0 # ServerHello size
+        self.min_pdu=sys.maxsize 
+        self.max_pdu=0
+        self.num_sizes=0
         self.s_psizes=[] # list of APDU sizes from src, 0 is 1st, 1 2nd seen etc.
         self.s_delays=[] # list of relative time offsets from session start
         self.d_psizes=[] # list of APDU sizes from dst, 0 is 1st, 1 2nd seen etc.
@@ -81,6 +87,7 @@ class TLSSession():
                 "\t" + self.src + ":" + self.sport + "->" + self.dst + ":" + self.dport + "\n" + \
                 "\t" + "CH size: " +  str(self.chsize) + " SH size: " + str(self.shsize) + "\n" +  \
                 "\t" + "Cert size: " +  str(self.certsize) + " CV size (proxy): " + str(self.cvsize) + "\n" +  \
+                "\t" + "Min PDU: " + str(self.min_pdu) + " Max PDU: " + str(self.max_pdu) + " Num sizes: " + str(self.num_sizes) + "\n" + \
                 "\t" + "source packet sizes: " + str(self.s_psizes) + "\n"+ \
                 "\t" + "source packet times: " + str(["%.3f" % v for v in self.s_delays]) + "\n" + \
                 "\t" + "dest packet sizes: " + str(self.d_psizes) + "\n" + \
@@ -88,28 +95,31 @@ class TLSSession():
 
     def add_apdu(self,size,pkttime,pstamp,src):
 
-        # this way was broken, not sure why
-        #tdiff=pkttime-self.start_time
-        #msecs=tdiff.microseconds/1000
-
-        # this way works:-) str->float; subtract; then secs -> millisecs
         #print ("type(pstamp): " + str(type(pstamp)) + " type(self.timestamp): " + str(type(self.timestamp)))
         tdiff=float(pstamp)-self.timestamp
         msecs=tdiff*1000
+        isize=int(size)
         if src==True:
-            self.s_psizes.append(int(size))
+            self.s_psizes.append(isize)
             slen=len(self.s_delays)
             if slen>0 and self.s_delays[slen-1]>msecs:
                 print("Oddity: src going backwards in time to " + str(msecs) + " from " + str(self) + " tstamp: " + str(pstamp))
             self.s_delays.append(float(msecs))
         elif src==False:
-            self.d_psizes.append(int(size))
+            self.d_psizes.append(isize)
             dlen=len(self.d_delays)
             if dlen>0 and self.d_delays[dlen-1]>msecs:
                 print("Oddity: dest going backwards in time to " + str(msecs) + " from "+ str(self) + " tstamp: " + str(pstamp))
             self.d_delays.append(float(msecs))
         else:
             raise ValueError('Bad (non-boolean) given to add_apdu')
+        if isize < self.min_pdu:
+            self.min_pdu=isize
+        if isize > self.max_pdu:
+            self.max_pdu=isize
+        # probably v. slow but we don't get huge numbers of packets/session
+        # so likely not a big deal
+        self.num_sizes=len(set(self.s_psizes+self.d_psizes))
     
     def note_chsize(self,cs):
         self.chsize=cs
