@@ -114,10 +114,10 @@ I've started that.
 - Provide more flexibility in terms of which TLS sessions
   to in/exclude in a sound file. What makes sense depends on 
   the presumed vantage point. 
-    - client-local n/w - all in one (tested, remainder tbd)
-    - server-local or middle n/w - IP range(s)
-    - each src IP in one
-    - each dsg IP in one
+    - client-local n/w - all in one (basic test)
+    - each src IP in one (basic test)
+    - each dsg IP in one (basic test)
+    - server-local or middle n/w - IP range(s) (to be debugged)
 
 - figure out/guess some b/w number
     - 1MB/s (8Mbps) as a default 

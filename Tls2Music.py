@@ -140,19 +140,19 @@ instarr=[
 
 # Functions
 
-def selector_match(s,sels,sl=None):
+def selector_match(s,sels,sl=""):
     '''
     check if TLS session matches selector
     selector is a (list of) IP prefixes (v4/v6)
     '''
-    #print("Sels="+str(sels)+" type(sels): " + str(type(sels)) + " sl: " + str(sl))
+    print("Sels="+str(sels)+" type(sels): " + str(type(sels)) + " sl: " + str(sl))
     if type(sels)==str and sels=='all': 
         #print("R1")
         return True
-    if type(sels)==str and sels=='src' and sl is not None and sl.selector==s.src: 
+    if type(sels)==str and sels=='src' and sl is not None and sl==s.src: 
         #print("R2")
         return True
-    if type(sels)==str and sels=='dst' and sl is not None and sl.selector==s.dst: 
+    if type(sels)==str and sels=='dst' and sl is not None and sl==s.dst: 
         #print("R3")
         return True
     if type(sels)==list:
@@ -190,12 +190,12 @@ def size2freqdur(size,minsize,maxsize,c2s_direction,lowfreq,highfreq,channel,nch
     freq=bottomstep+normalised*(topstep-bottomstep)
     return freq, duration
 
-def find_set(s,session_sets):
+def find_set(s,sels,session_sets):
     '''
     search for tls_session_set mwith matching IPs
     '''
     for w in session_sets:
-        if selector_match(s,w.selector):
+        if selector_match(s,sels,w.selector):
             return w
     return None
 
@@ -491,7 +491,7 @@ hmac_secret=None
 
 # we'll keep an array of tls_session_set values
 the_arr=[]
-if selectors is not None:
+if selectors is None or (selectors is not None and type(selectors)==str and selectors=='all'):
     # just one set of tls sessions so, whatever determined by selectors
     s=tls_session_set()
     s.selector=selectors
@@ -525,6 +525,7 @@ for s in sessions:
             print("Ignoring blocked session: " + s.src + "->" + s.dst)
         continue
     w=None
+    print("Len-ta="+str(len(the_arr)))
     for sl in the_arr:
         if w is None and selector_match(s,selectors,sl.selector):
             if args.verbose:
@@ -534,9 +535,13 @@ for s in sessions:
         if args.verbose:
             print("Skipping over session: " + s.src + "->" + s.dst)
         continue
-    if w is None and type(selectors)==str and (selectors=='src' or selectors=='dst'):
+    if w is None and type(selectors)==str and selectors=='src':
         w=tls_session_set()
-        w.selector=selectors
+        w.selector=s.src
+        the_arr.append(w)
+    if w is None and type(selectors)==str and selectors=='dst':
+        w=tls_session_set()
+        w.selector=s.dst
         the_arr.append(w)
     if w is None:
         print("Oops - w is None when it shouldn't be")
@@ -576,9 +581,9 @@ for s in sessions:
         if args.verbose:
             print("Still ignoring session: " + s.src + "->" + s.dst)
         continue
-    w=find_set(s,the_arr)
+    w=find_set(s,selectors,the_arr)
     if w is None:
-        raise ValueError('No details for session: ' + s.sess_id)
+        raise ValueError('No details for session: ' + str(s.sess_id) + " from " + s.src + "->"+s.dst )
     for i in range(0,len(s.s_psizes)):
         freq,dur=size2freqdur(s.s_psizes[i],s.min_pdu,s.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
         w.notes.append([freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,w.this_session])
@@ -602,6 +607,7 @@ for w in the_arr:
     w.notes=sorted(w.notes, key=itemgetter(2))
     if args.verbose:
         print(w)
+        print("\n")
 
 # write out midicsv file, one per src ip
 # to play such:
