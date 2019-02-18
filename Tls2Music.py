@@ -146,7 +146,7 @@ def selector_match(s,sels,sl=""):
     check if TLS session matches selector
     selector is a (list of) IP prefixes (v4/v6)
     '''
-    print("Sels="+str(sels)+" type(sels): " + str(type(sels)) + " sl: " + str(sl))
+    #print("Sels="+str(sels)+" type(sels): " + str(type(sels)) + " sl: " + str(sl))
     if type(sels)==str and sels=='all': 
         #print("R1")
         return True
@@ -532,7 +532,7 @@ for s in sessions:
             print("Ignoring blocked session: " + s.src + "->" + s.dst)
         continue
     w=None
-    print("Len-ta="+str(len(the_arr)))
+    #print("Len-ta="+str(len(the_arr)))
     for sl in the_arr:
         if w is None and selector_match(s,selectors,sl.selector):
             if args.verbose:

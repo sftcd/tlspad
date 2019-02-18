@@ -57,3 +57,15 @@ function amiroot()
     fi
 }
 RUNNINGAS=$(amiroot)
+
+# Check if I can use sudo in a script without
+# having to bother the user for the password
+function canisudo()
+{
+    if sudo -n true 2>/dev/null; then
+        echo "yes"
+    else
+        echo "no"
+    fi
+}
+CANISUDO=$(canisudo)

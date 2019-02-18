@@ -52,7 +52,7 @@ later.
             - IPv4 prefixes need to be like: ``192.0.2.0/24`` (i.e. include zeros on right)
             - IPv6 prefixes can be like: ``2001:db8::/32``
         - ``-V`` is for vantage point here even though that's not quite right
-    - default is to group by src IPs
+        - default is to group by src IPs
 
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music
@@ -108,10 +108,13 @@ later.
     - The "-u" option uses selenium to fire up a test browser but that seems to
     fail (blocking) from time to time. Killing the test browser seens to get 
     things to move along ok, albeit we miss that measurement.
+    - This script may need ``sudo`` depending on how you'v setup packet capture.
 
 - [ignore-stubby.sh](ignore-stubby.sh) generates (or updates) the ``ignore.addrs``
-file, that causes ``Tls2Music.py`` to skip those addresses when making music.
-Including those makes for more boring sound:-)
+file, with the ``addresss_data`` found in ``/etc/stubby/stubby.cfg. Those are
+the addresses stubby uses for DoT.
+The ``ignore.addrs`` file causes ``Tls2Music.py`` to skip those addresses when making music.
+Including all the DNS IPs sometimes makes for more boring sound:-)
 
 - [playem.sh](playem.sh) is just a quick script to use timidity to play all the 
   ``.midi`` files in the current directory
@@ -125,6 +128,9 @@ terms of things to play about with (other than just tidying code) are:
 - avoid re-hit keys: move up/down one if a key/tone is playing now or
     otherwise avoid collisions (but pianos only have 88 keys so we
     can't avoid all, in general) 
+
+- some notes are being lost from some sound files according to 
+``timidity`` - need to check and fix
 
 - play some more with the python ``music`` library which seems to
 be related to [mass](https://github.com/ttm/mass) (install 

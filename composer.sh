@@ -225,12 +225,28 @@ then
             # should be ok as these aren't usually running but better not add
             # this as a cron job
             kill $dpid >/dev/null 2>&1 
-            sudo killall tcpdump >/dev/null 2>&1 
-            sudo killall tshark >/dev/null 2>&1 
+            if [[ "$CANISUDO" == "yes" ]]
+            then
+                sudo killall tcpdump >/dev/null 2>&1 
+                sudo killall tshark >/dev/null 2>&1 
+            else
+                # try anyway, probably barf
+                echo "Trying to killall tcpdump, tshark without sudo - might fail!"
+                killall tcpdump >/dev/null 2>&1 
+                killall tshark >/dev/null 2>&1 
+            fi
         else
             kill $dpid >/dev/null 
-            sudo killall tcpdump
-            sudo killall tshark 
+            if [[ "$CANISUDO" == "yes" ]]
+            then
+                sudo killall tcpdump
+                sudo killall tshark 
+            else
+                # try anyway, probably barf
+                echo "Trying to killall tcpdump, tshark without sudo - might fail!"
+                killall tcpdump >/dev/null 2>&1 
+                killall tshark >/dev/null 2>&1 
+            fi
         fi
 
         # set the label for later
