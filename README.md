@@ -42,7 +42,17 @@ later.
 
 - [Tls2Music.py](Tls2Music.py) takes the packets sizes/times and turns
     those to sound, either a .midi or .wav file or both.
-    - that sorta seems to work, state is I need to check accuracy (it's suspect:-)
+    - sorta seems to work
+    - to pick which TLS sessions to in/exclude in a sound file:
+        - include all TLS sessions in one sound file: use ``-V all``
+        - group sound files by src IP: use ``-V src``
+        - group souind files by dst IP: use ``-V dst``
+        - only include some IP range(s): use ``-V <fname>``
+            - where fname names a file that contains one IPv4/IPv6 prefix per line
+            - IPv4 prefixes need to be like: ``192.0.2.0/24`` (i.e. include zeros on right)
+            - IPv6 prefixes can be like: ``2001:db8::/32``
+        - ``-V`` is for vantage point here even though that's not quite right
+    - default is to group by src IPs
 
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music
@@ -106,23 +116,11 @@ Including those makes for more boring sound:-)
 - [playem.sh](playem.sh) is just a quick script to use timidity to play all the 
   ``.midi`` files in the current directory
 
-## Plan for re-factoring
+## Re-factoring
 
-This code is very messy at the moment and badly needed a tidy-up/refactoring.
-I've started that.
-
-- Provide more flexibility in terms of which TLS sessions
-  to in/exclude in a sound file. What makes sense depends on 
-  the presumed vantage point. 
-    - client-local n/w - all in one (basic test)
-    - each src IP in one (basic test)
-    - each dsg IP in one (basic test)
-    - server-local or middle n/w - IP range(s) (to be debugged)
-
-- figure out/guess some b/w number
-    - 1MB/s (8Mbps) as a default 
-    - @ 44.1KHz sample rate that means 181 rx/tx'd bits/audio-sample
-    - base note duration on that
+This code is very messy at the moment and badly needs a tidy-up/refactoring.
+I've started that. It'll need a couple of iterations. Next up in
+terms of things to play about with (other than just tidying code) are:
 
 - avoid re-hit keys: move up/down one if a key/tone is playing now or
     otherwise avoid collisions (but pianos only have 88 keys so we
@@ -130,8 +128,13 @@ I've started that.
 
 - play some more with the python ``music`` library which seems to
 be related to [mass](https://github.com/ttm/mass) (install 
-via ``pip install music``) - that'd likely supercede the current
+via ``pip install music``) - that'd likely replace the current
 ``.wav`` file generation code that produces modem noise.
+
+- figure out/guess some b/w number
+    - 1MB/s (8Mbps) as a default 
+    - @ 44.1KHz sample rate that means 181 rx/tx'd bits/audio-sample
+    - base note duration on that
 
 ## Tools used
 

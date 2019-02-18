@@ -105,7 +105,8 @@ class tls_session_set():
     def __str__(self):
         return("Details for " + self.fname + ": session: " + str(self.this_session) + " of " + str(self.nsessions) + "\n" + \
                 "\t" + "Earliest: " + str("%.02F"%self.earliest) + " Latest: " + str("%.02F"%self.latest) + " Dur: " + str("%.02f"%(self.overall_duration/1000)) + "\n" + \
-                "\t" + "Notes:\n" + '\n'.join(' '.join(map(str,note)) for note in self.notes))
+                "\t" + "Notes:\n" + '\n'.join(' '.join(map(str,note)) for note in self.notes) + \
+                "\n" + "Session IDs: \n" + '\n'.join('\t'+str(s.sess_id) for s in self.sessions) )
 
 # midi instrument number
 # there's a list at https://www.midi.org/specifications/item/gm-level-1-sound-set
@@ -157,13 +158,13 @@ def selector_match(s,sels,sl=""):
         return True
     if type(sels)==list:
         for sel in sels:
-            ipsel=ipaddress(sel)
-            if s.src in ipsel:
+            ipsel=ipaddress.ip_network(sel)
+            if ipaddress.ip_address(s.src) in ipsel:
                 #print("R4")
-                return True
-            if s.dst in ipsel:
+                return True, s.src
+            if ipaddress.ip_address(s.dst) in ipsel:
                 #print("R5")
-                return True
+                return True, s.dst
     #print("R6")
     return False
 
@@ -205,7 +206,7 @@ def init_key():
     '''
     return open("/dev/urandom","rb").read(32)
 
-def hash_name(key,fname,src,allinone):
+def hash_name(key,fname,src,sels):
     '''
     outpuf file are either labelled or anonymised
     - labels are like "<label>-src-ip.midi.csv", anonymised are...
@@ -224,8 +225,13 @@ def hash_name(key,fname,src,allinone):
         # (they'll occur in IPv6 addresses)
         psrc=src.replace(":","")
         hmacval = hmac.new(key, msg=src.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
+        # this is clumsy - TODO: fix later
+        allinone=type(sels)==str and sels=='all'
+        rmatch=type(sels)==list 
         if allinone:
             rv=str(int(time.time()))+"-"+label+"-all-"+hmacval[0:8]
+        elif rmatch:
+            rv=str(int(time.time()))+"-"+label+"-range-"+hmacval[0:8]
         else:
             ipver="ipv4"
             if ":" in src:
@@ -433,7 +439,8 @@ if args.notegen is not None:
         print(args.notegen)
         sys.exit(2)
 
-selectors=None
+# default is to group by SRC IP
+selectors='src'
 if args.vantage is not None:
     if args.vantage=='all':
         selectors='all'
@@ -532,9 +539,17 @@ for s in sessions:
                 print("Selecting session: " + s.src + "->" + s.dst)
             w=sl
     if w is None and type(selectors)==list:
-        if args.verbose:
-            print("Skipping over session: " + s.src + "->" + s.dst)
-        continue
+        matches, sel= selector_match(s,selectors)
+        if matches:
+            w=tls_session_set()
+            w.selector=sel
+            the_arr.append(w)
+            if args.verbose:
+                print("Matched session: " + s.src + "->" + s.dst + " Matching on " + sel )
+        else:
+            if args.verbose:
+                print("Skipping over session: " + s.src + "->" + s.dst)
+            continue
     if w is None and type(selectors)==str and selectors=='src':
         w=tls_session_set()
         w.selector=s.src
@@ -548,7 +563,7 @@ for s in sessions:
         sys.exit(3)
     if w.fname=="":
         # initialise some
-        wname=hash_name(hmac_secret,s.fname,s.src,type(selectors)==str and selectors=='all')
+        wname=hash_name(hmac_secret,s.fname,s.src,selectors)
         w.fname=wname
     if w.earliest > s.timestamp:
         w.earliest=s.timestamp
@@ -559,6 +574,7 @@ for s in sessions:
         # end_time might not be set yet, that's ok
         pass
     w.nsessions += 1
+    w.sessions.append(s)
 
     # possibly extend duration based on last packet timing
     if len(s.s_delays) > 0 :
@@ -574,6 +590,11 @@ for s in sessions:
         w.latest=lt
     # update overall duration
     w.overall_duration=w.latest-w.earliest
+
+# Could be selectors given mean we have no sessions to handle
+if len(the_arr)==0:
+    print("No sessions selected - exiting")
+    sys.exit(0)
 
 # loop again through sessions to pick up PDU details
 for s in sessions:
