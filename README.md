@@ -125,12 +125,25 @@ This code is very messy at the moment and badly needs a tidy-up/refactoring.
 I've started that. It'll need a couple of iterations. Next up in
 terms of things to play about with (other than just tidying code) are:
 
-- avoid re-hit keys: move up/down one if a key/tone is playing now or
-    otherwise avoid collisions (but pianos only have 88 keys so we
-    can't avoid all, in general) 
+- did the re-hit note up/down thing and now get loads of
+  arpeggio-like things, not right still - maybe bump by
+  some other interval
+
+- note length/freq currently chosen via a simple normalisation
+  (basically percent between min and mix) but I seem to see
+  lots of sessions with v. few packet sizes which means I get
+  the min and max ranges quite often. That maps to v. high or 
+  low notes which isn't so great. (Mitigated a chunk by using
+  different instruments at different octaves but still...)
+    - added the num_sizes input to size2freqdur to take
+      that into account but haven't yet used it
 
 - some notes are being lost from some sound files according to 
 ``timidity`` - need to check and fix
+    - changing the min,max note lengths to 500,1500 from 100,1000 (ms)
+    seems to have some effect, but doesn't solve the issue
+    - could be related to the above if what it really means is
+    we're hitting the same note, whilst it's already on
 
 - play some more with the python ``music`` library which seems to
 be related to [mass](https://github.com/ttm/mass) (install 

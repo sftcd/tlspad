@@ -55,9 +55,12 @@ sample_freq=44100
 
 # min note length (ms)
 min_note_length=100
+# see if this solves notes cut off issues....
+#min_note_length=500
 
 # longest note 
 max_note_length=1000
+# max_note_length=1500
 
 # lowest note (Hz)
 lowest_note=30
@@ -168,7 +171,7 @@ def selector_match(s,sels,sl=""):
     #print("R6")
     return False
 
-def size2freqdur(size,minsize,maxsize,c2s_direction,lowfreq,highfreq,channel,nchannels):
+def size2freqdur(size,minsize,maxsize,nsizes,c2s_direction,lowfreq,highfreq):
     # map a (packet) size into a frequency and duration based on the low 
     # and high frequecies, 
 
@@ -353,6 +356,109 @@ def scaletime(x):
         #print("Mapped4: "+str(x)+" to: "+str(mapped)) 
     return mapped
 
+# eliminate cases where the same note is hit whilst still on by moving up one
+# go through notes array, note who's turned on/off when, then if an on-note is to
+# be hit, try one up or down until we find a note that's off - then hit that
+def avoid2keypresses(midilcsv):
+    a2kpverbose=False
+    newline=True
+    keys = [False] * 128
+    if a2kpverbose:
+        print("\nentering a2kp " + str(keys))
+    channelno=0
+    for line in midicsv:
+        if a2kpverbose:
+            print("line" + str(line))
+        if channelno!=line[0]:
+            if a2kpverbose:
+                print("new line " + str(keys))
+            keys = [False] * 128
+            channelno=line[0]
+        oncmd=(line[2]==',note_on_c,')
+        keynum=line[4]
+        if a2kpverbose:
+            print("Oncmd="+str(oncmd)+" keynum=" + str(keynum))
+        if oncmd and keys[keynum]:
+            # don't - find a nearby key instead
+            if a2kpverbose:
+                print("new key needed for " + str(line))
+            thisind=midicsv.index(line)
+            last=len(midicsv)
+            fixed=False
+            for ind in range(thisind,last):
+                offset=1
+                newkeynum=keynum+offset
+                updir=True
+                finishedup=False
+                finisheddown=False
+                nonewkey=False
+                while keys[newkeynum]==True:
+                    if not finishedup and updir:
+                        offset=abs(offset)
+                        if finisheddown:
+                            offset+=1
+                        if not finisheddown:
+                            updir=False
+                    elif not finisheddown: 
+                        if not finishedup:
+                            offset +=1
+                            offset=-1*offset
+                            updir=True
+                        else:
+                            offset-=1
+                    newkeynum=keynum+offset
+                    if newkeynum>=127:
+                        if a2kpverbose:
+                            print("re-keying finishedup")
+                        finishedup=True
+                        updir=False
+                    if newkeynum<=1:
+                        if a2kpverbose:
+                            print("re-keying finisheddown")
+                        finisheddown=True
+                        updir=True
+                    if finishedup and finisheddown:
+                        if a2kpverbose:
+                            print("Crap - re-keying failed")
+                        nonewkey=True
+                        break
+                    if a2kpverbose:
+                        print("nk: " + str(newkeynum) + " offset: " + str(offset)) 
+
+                if nonewkey:
+                    break
+
+                if midicsv[ind][0]!=channelno:
+                    # oops
+                    print("Fell off end of channel while re-keying")
+                    sys.exit(7)
+                if midicsv[ind][2]==',note_off_c,' and midicsv[ind][4]==keynum:
+                    # switch the keynums, here and there
+                    line[4]=newkeynum
+                    midicsv[ind][4]=newkeynum
+                    keys[newkeynum]=True
+                    fixed=True
+                    if a2kpverbose:
+                        print("Re-keyed from " + str(keynum) + " to " + str(newkeynum))
+                    break
+
+            if not fixed:
+                if a2kpverbose:
+                    print("Fell off end of array while re-keying " +str(line))
+                pass
+
+        elif not oncmd and keys[keynum]:
+            if a2kpverbose:
+                print("turn off key " + str(keynum))
+            keys[keynum]=False
+        elif oncmd and not keys[keynum]:
+            if a2kpverbose:
+                print("turn on key " + str(keynum))
+            keys[keynum]=True
+        if a2kpverbose:
+            print("in loop a2kp " + str(keys) + " \n" )
+    if a2kpverbose:
+        print("exiting a2kp " + str(keys) + "\n")
 
 # main line code...
 
@@ -413,10 +519,10 @@ if args.freq is not None:
     sample_freq=args.freq
 
 if args.min_note is not None:
-    min_note_length=args.min_note
+    min_note_length=int(args.min_note)
 
 if args.max_note is not None:
-    max_note_length=args.max_note
+    max_note_length=int(args.max_note)
 
 if args.low_note is not None:
     lowest_note=args.low_note
@@ -606,10 +712,10 @@ for s in sessions:
     if w is None:
         raise ValueError('No details for session: ' + str(s.sess_id) + " from " + s.src + "->"+s.dst )
     for i in range(0,len(s.s_psizes)):
-        freq,dur=size2freqdur(s.s_psizes[i],s.min_pdu,s.max_pdu,True,lowest_note,highest_note,w.this_session,w.nsessions)
+        freq,dur=size2freqdur(s.s_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,True,lowest_note,highest_note)
         w.notes.append([freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,w.this_session])
     for i in range(0,len(s.d_psizes)):
-        freq,dur=size2freqdur(s.d_psizes[i],s.min_pdu,s.max_pdu,False,lowest_note,highest_note,w.this_session,w.nsessions)
+        freq,dur=size2freqdur(s.d_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,False,lowest_note,highest_note)
         w.notes.append([freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,w.this_session])
     if len(s.s_psizes)>0 or len(s.d_psizes)>0:
         # midi limit on channels/sessions seems to be max 16 is reliable
@@ -630,16 +736,11 @@ for w in the_arr:
         print(w)
         print("\n")
 
-# write out midicsv file, one per src ip
-# to play such:
-#   $ csvmidi <hash>.midi.csv <hash>.midi
-#   $ timidity <hash>.midi
+# pick notes from frequencies and handle time munging
+# TODO: separate those later
 for w in the_arr:
     if args.verbose:
-        print("Saving " + w.fname + ".midi.csv")
-    # we'll just keep an array of strings with one line per and won't
-    # bother making a python CSV structure
-    midicsv=[]
+        print("Picking notes")
     # table version
     table={}
     for note in w.notes:
@@ -684,40 +785,52 @@ for w in the_arr:
         if args.scaledtime:
             ontime=scaletime(note[2])
             offtime=scaletime(note[1]+note[2])
-
+        # bit of paranoia...
         if ontime < 0.0:
             print("Weird ontime: " + str(ontime))
             sys.exit(4)
         if offtime < 0.0:
             print("Weird offtime: " + str(offtime))
             sys.exit(4)
-
-        # odd structure here is so we can sort on time in a sec...
-        # let's play with different velocities see what that does...
-        # BANG the keys...
-        # midicsv.append([note[5]+2,ontime,",note_on_c,",note[5],notenum,",81"])
-        # Nice and gentle...
-        # midicsv.append([note[5]+2,ontime,",note_on_c,",note[5],notenum,",21"])
         # Earlier channels loudest
         # velocity = 81-5*channel (aka note[5]) 
         vel=int(81-4*note[5])
-        midicsv.append([note[5]+2,ontime,",note_on_c,",note[5],notenum,","+str(vel)])
+        # add what we've calculated to note, in cols 6-9
+        note.extend([notenum,ontime,offtime,vel])
+    # table version
+    # print(table)
+    del table
+
+# write out midicsv file, one per src ip
+# to play such:
+#   $ csvmidi <hash>.midi.csv <hash>.midi
+#   $ timidity <hash>.midi
+for w in the_arr:
+    if args.verbose:
+        print("Writing to " + w.fname + ".midi.csv")
+
+    # we'll just keep an array of strings with one line per and won't
+    # bother making a python CSV structure
+    midicsv=[]
+    for note in w.notes:
+        # odd structure here is so we can sort on time in a sec...
+        # let's play with different velocities see what that does...
+        midicsv.append([note[5]+2,note[7],",note_on_c,",note[5],note[6],","+str(note[9])])
         # might make the above a parameter, but not yet
-        midicsv.append([note[5]+2,offtime,",note_off_c,",note[5],notenum,",0"])
+        midicsv.append([note[5]+2,note[8],",note_off_c,",note[5],note[6],",0"])
     
-    # now sort by time
+    # now sort again by time
     midicsv.sort(key=itemgetter(1))
 
-    # eliminate any non-changing time gapes > specified limit
+    # eliminate any non-changing time gaps > specified limit
     if args.suppress_silence is not None:
         killsilence(midicsv,args.suppress_silence)
-
+    
     # now sort by track/channel
     midicsv.sort(key=itemgetter(0))
 
-    # TODO: eliminate cases where the same note is hit whilst still on by moving up one
-    # go through notes array, note who's turned on/off when, then if an on-note is to
-    # be hit, try one up or down until we find a note that's off - then hit that
+    # do what this says
+    avoid2keypresses(midicsv)
 
     with open(w.fname+".midi.csv","w") as f:
         # precursor
@@ -747,9 +860,6 @@ for w in the_arr:
         f.write('0, 0, End_of_file\n')
         f.close()
     del midicsv
-    # table version
-    # print(table)
-    del table
 
 # write out .wav files, one per src ip
 if args.wav:
