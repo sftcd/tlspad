@@ -127,7 +127,7 @@ terms of things to play about with (other than just tidying code) are:
 
 - did the re-hit note up/down thing and now get loads of
   arpeggio-like things, not right still - maybe bump by
-  some other interval
+  some other interval (there's a TODO in ``avoid2keypresses``)
 
 - note length/freq currently chosen via a simple normalisation
   (basically percent between min and mix) but I seem to see

@@ -356,16 +356,22 @@ def scaletime(x):
         #print("Mapped4: "+str(x)+" to: "+str(mapped)) 
     return mapped
 
-# eliminate cases where the same note is hit whilst still on by moving up one
+# eliminate cases where the same note is hit whilst already "on" by moving 
 # go through notes array, note who's turned on/off when, then if an on-note is to
-# be hit, try one up or down until we find a note that's off - then hit that
-def avoid2keypresses(midilcsv):
+# be hit, try 2 up or down until we find a note that's off - then hit that
+# TODO: maybe try find a "nice-sounding" nearby note instead of just going 
+# 2-up or 2-down at a time via the off_increment var below (i.e. maybe
+# try for chords somehow)
+def avoid2keypresses(midicsv):
     a2kpverbose=False
     newline=True
     keys = [False] * 128
-    if a2kpverbose:
-        print("\nentering a2kp " + str(keys))
     channelno=0
+    low_num=freq2num(lowest_note)
+    high_num=freq2num(highest_note)
+    if a2kpverbose:
+        print("\nentering a2kp, low: " + str(low_num) + " high: " + str(high_num))
+        print(str(keys))
     for line in midicsv:
         if a2kpverbose:
             print("line" + str(line))
@@ -387,32 +393,33 @@ def avoid2keypresses(midilcsv):
             fixed=False
             for ind in range(thisind,last):
                 offset=1
+                off_increment=2 
                 newkeynum=keynum+offset
                 updir=True
                 finishedup=False
                 finisheddown=False
                 nonewkey=False
-                while keys[newkeynum]==True:
+                while newkeynum>=low_num and newkeynum<=high_num and keys[newkeynum]==True:
                     if not finishedup and updir:
                         offset=abs(offset)
                         if finisheddown:
-                            offset+=1
+                            offset=offset+off_increment
                         if not finisheddown:
                             updir=False
                     elif not finisheddown: 
                         if not finishedup:
-                            offset +=1
+                            offset=offset+off_increment
                             offset=-1*offset
                             updir=True
                         else:
-                            offset-=1
+                            offset=offset-off_increment
                     newkeynum=keynum+offset
-                    if newkeynum>=127:
+                    if newkeynum>=high_num:
                         if a2kpverbose:
                             print("re-keying finishedup")
                         finishedup=True
                         updir=False
-                    if newkeynum<=1:
+                    if newkeynum<=low_num:
                         if a2kpverbose:
                             print("re-keying finisheddown")
                         finisheddown=True
@@ -806,6 +813,10 @@ for w in the_arr:
 #   $ csvmidi <hash>.midi.csv <hash>.midi
 #   $ timidity <hash>.midi
 for w in the_arr:
+    if len(w.notes)==0:
+        if args.verbose:
+            print("Not writing to " + w.fname + ".midi.csv - no notes!")
+        continue
     if args.verbose:
         print("Writing to " + w.fname + ".midi.csv")
 
