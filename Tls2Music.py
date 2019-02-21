@@ -117,30 +117,53 @@ class tls_session_set():
 # channel 10 is drums of various kinds with restrictions on what note numbers can be used
 instrumentnum=1 # piano
 #instrumentnum=19 # choral organ
-instarr=[ 
+
+instarr_1=[ 
         0, # acoustic grand piano
         3, # honky-tonk piano
         # 9, # glockenspiel 
         21, # accordian
         24, # acoustic guitar
         # 25, # steel guitar
-
         33, # electric bass
         40, # violin
         42, # cello
         56, # trumpet
-
         57, # trombone
         66, # tenor sax
         71, # clarinet
         72, # flute
         # 79, # ocarina
-
         105, # banjo
         109, # bag pipe
         114, # steel drums
         103, # FX 8 (sci-fi) (huh?)
         ]
+
+# try another, aiming for a softer noise
+instarr_2=[ 
+        71, # clarinet
+        56, # trumpet
+        57, # trombone
+        68, # oboe 
+
+        24, # acoustic guitar
+        33, # electric bass
+        42, # cello
+        11, # Vibraphone
+
+        40, # violin
+        72, # flute
+        6, # Harpsichord
+        14, # Tubular Bells
+
+        22, # Harmonica
+        38, # Synth Bass 1
+        48, # String Ensemble 1
+        66, # tenor sax
+        ]
+
+instarr=instarr_2
 
 # Functions
 

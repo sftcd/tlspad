@@ -134,6 +134,10 @@ terms of things to play about with (other than just tidying code) are:
        sine of where we are in the overall tune (so max about
        the middle)
 
+- added another ensemble (mapping of midi channels to
+  instrumennts); not as much difference as expected but more
+  playing to be done
+
 - note length/freq currently chosen via a simple normalisation
   (basically percent between min and mix) but I seem to see
   lots of sessions with v. few packet sizes which means I get
@@ -218,3 +222,8 @@ Things I looked at, in less or lesser detail...
 - [datadrivendj](https://datadrivendj.com/faq/) seems relevant; uses 
      [Chuck](http://chuck.cs.princeton.edu/) (no https, sorry) - might be
     worth a look, but maybe too complicated;-(
+- The ubuntu packages "abcmidi" and "absm2ps" provide (respectively) the
+  ``midi2abc`` and ``abcm2ps`` tools, that do allow me to map my midi
+  files to abc form. Sadly, the latter too barfs on those abc files
+  complaining that there are too many notes in a chord, which is 
+  not unreasonable really.
