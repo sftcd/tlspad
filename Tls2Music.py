@@ -486,7 +486,8 @@ def velocity(notenum,channel,offset,duration,overall_duration):
         dperchan=0.5*(maxvel-minvel)/nchans
         vel=maxvel-minvel-channel*dperchan
         newvel=minvel+int(vel*sine_adjust)
-        print("Sine ajdusted from " + str(vel) + " to " + str(newvel) + " sa: " + str(sine_adjust) + " off: " + str(offset) + " overall: " + str(overall_duration))
+        if args.verbose:
+            print("Sine ajdusted from " + str(vel) + " to " + str(newvel) + " sa: " + str(sine_adjust) + " off: " + str(offset) + " overall: " + str(overall_duration))
         vel=newvel
     return vel
 
@@ -727,7 +728,8 @@ for s in sessions:
         w.latest=lt
     # update overall duration
     w.overall_duration=w.latest-w.earliest
-    print("overall: " + str(w.overall_duration) + "E: " +  str(w.earliest) + " L:" + str(w.latest))
+    if args.verbose:
+        print("overall: " + str(w.overall_duration) + "E: " +  str(w.earliest) + " L:" + str(w.latest))
 
 # Could be selectors given mean we have no sessions to handle
 if len(the_arr)==0:
