@@ -92,7 +92,7 @@ class tls_session_set():
             'notes', # the set of notes in a musical rendering
             'sessions'
             ]
-    def __init__(self,fname="",selector=None,nsessions=0,earliest=sys.maxsize,latest=-1,overall_duration=0,this_session=0):
+    def __init__(self,fname="",selector=None,nsessions=0,earliest=sys.maxsize,latest=0,overall_duration=0,this_session=0):
         self.fname=fname
         self.selector=selector
         self.nsessions=nsessions
@@ -467,6 +467,30 @@ def avoid2keypresses(midicsv):
     if a2kpverbose:
         print("exiting a2kp " + str(keys) + "\n")
 
+# the velocity with which we hit keys, this function will
+# all us play with that
+def velocity(notenum,channel,offset,duration,overall_duration):
+    # starting point
+    vel=int(81-4*channel)
+    # let's try out a few options, see what sounds better and then
+    # make those command line args later (maybe)
+    option="midloud"
+    if option=="midloud":
+        # start quieter, then loud in middle, then quieter again
+        # but still keep earlier channels louder
+        # 81 is max, 40 is min
+        sine_adjust=math.sin(math.pi*offset/overall_duration)
+        maxvel=81
+        minvel=40
+        nchans=15
+        dperchan=0.5*(maxvel-minvel)/nchans
+        vel=maxvel-minvel-channel*dperchan
+        newvel=minvel+int(vel*sine_adjust)
+        print("Sine ajdusted from " + str(vel) + " to " + str(newvel) + " sa: " + str(sine_adjust) + " off: " + str(offset) + " overall: " + str(overall_duration))
+        vel=newvel
+    return vel
+
+
 # main line code...
 
 # command line arg handling 
@@ -703,6 +727,7 @@ for s in sessions:
         w.latest=lt
     # update overall duration
     w.overall_duration=w.latest-w.earliest
+    print("overall: " + str(w.overall_duration) + "E: " +  str(w.earliest) + " L:" + str(w.latest))
 
 # Could be selectors given mean we have no sessions to handle
 if len(the_arr)==0:
@@ -801,7 +826,8 @@ for w in the_arr:
             sys.exit(4)
         # Earlier channels loudest
         # velocity = 81-5*channel (aka note[5]) 
-        vel=int(81-4*note[5])
+        # vel=int(81-4*note[5])
+        vel=velocity(notenum,note[5],ontime,offtime-ontime,w.overall_duration)
         # add what we've calculated to note, in cols 6-9
         note.extend([notenum,ontime,offtime,vel])
     # table version

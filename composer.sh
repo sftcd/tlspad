@@ -261,6 +261,10 @@ then
         if [[ "$getpage_failed" == "no" ]]
         then
             # Do the analysis to generate the csvmidi files (and optonal .wavs)
+            if [[ "$VERBOSE" != "" ]]
+            then
+                echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN"
+            fi
             $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
         fi
 

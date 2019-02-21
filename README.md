@@ -129,6 +129,11 @@ terms of things to play about with (other than just tidying code) are:
   arpeggio-like things, not right still - maybe bump by
   some other interval (there's a TODO in ``avoid2keypresses``)
 
+- added first playing with velocity/loudness changes
+     - "midloud" to vary velocity between min and max based on
+       sine of where we are in the overall tune (so max about
+       the middle)
+
 - note length/freq currently chosen via a simple normalisation
   (basically percent between min and mix) but I seem to see
   lots of sessions with v. few packet sizes which means I get
