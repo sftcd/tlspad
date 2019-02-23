@@ -63,10 +63,15 @@ max_note_length=1000
 # max_note_length=1500
 
 # lowest note (Hz)
-lowest_note=30
+lowest_note=20
 
 # highest note (Hz)
 highest_note=4000
+
+# time dilation - stretch it all out by this factor
+# not sure effects are of much interest - does make
+# it all take longer though:-)
+time_dilation=1
 
 # midi output wanted
 domidi=True
@@ -198,7 +203,7 @@ def size2freqdur(size,minsize,maxsize,nsizes,c2s_direction,lowfreq,highfreq):
     # map a (packet) size into a frequency and duration based on the low 
     # and high frequecies, 
 
-    # duration is min 100ms and max 1s and is distributed evenly according 
+    # default is min 100ms and max 1s and is distributed evenly according 
     # to min and max pdu sizes
     if maxsize-minsize == 0:
         # likely not what's wanted but let's see...
@@ -206,6 +211,9 @@ def size2freqdur(size,minsize,maxsize,nsizes,c2s_direction,lowfreq,highfreq):
     else:
         normalised=(size-minsize)/(maxsize-minsize)
     duration=int(min_note_length+normalised*(max_note_length-min_note_length))
+
+    bpms=180
+    duration=time_dilation*int(8*size/bpms)
 
     frange=highfreq-lowfreq
     bottomstep=lowfreq
@@ -815,8 +823,8 @@ for w in the_arr:
         if notenum>=high_num:
             notenum -= (high_num-low_num)
         # linear time
-        ontime=int(note[2])
-        offtime=int(note[1]+note[2])
+        ontime=time_dilation*int(note[2])
+        offtime=time_dilation*int(note[1]+note[2])
         # change if log time...
         if args.logtime:
             try:
@@ -825,7 +833,7 @@ for w in the_arr:
                     ontime=0
                 else:
                     # add a millisecond to avoid negative logs
-                    ontime=int(100*math.log(1+note[2]))
+                    ontime=time_dilation*int(100*math.log(1+note[2]))
                 if note[1]+note[2]==0:
                     # shouldn't happen really 
                     print("ouch2! processing " + w.fname)
@@ -833,15 +841,15 @@ for w in the_arr:
                     sys.exit(1)
                 else:
                     # add a millisecond to avoid negative logs
-                    offtime=int(100*math.log(1+note[1]+note[2]))
+                    offtime=time_dilation*int(100*math.log(1+note[1]+note[2]))
             except Exception as e:
                 print("ouch! processing " + w.fname)
                 print(str(w))
                 sys.exit(1)
         # Try another time compression - log compresses too much
         if args.scaledtime:
-            ontime=scaletime(note[2])
-            offtime=scaletime(note[1]+note[2])
+            ontime=time_dilation*scaletime(note[2])
+            offtime=time_dilation*scaletime(note[1]+note[2])
         # bit of paranoia...
         if ontime < 0.0:
             print("Weird ontime: " + str(ontime))

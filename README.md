@@ -125,19 +125,6 @@ This code is very messy at the moment and badly needs a tidy-up/refactoring.
 I've started that. It'll need a couple of iterations. Next up in
 terms of things to play about with (other than just tidying code) are:
 
-- did the re-hit note up/down thing and now get loads of
-  arpeggio-like things, not right still - maybe bump by
-  some other interval (there's a TODO in ``avoid2keypresses``)
-
-- added first playing with velocity/loudness changes
-     - "midloud" to vary velocity between min and max based on
-       sine of where we are in the overall tune (so max about
-       the middle)
-
-- added another ensemble (mapping of midi channels to
-  instrumennts); not as much difference as expected but more
-  playing to be done
-
 - note length/freq currently chosen via a simple normalisation
   (basically percent between min and mix) but I seem to see
   lots of sessions with v. few packet sizes which means I get
@@ -159,10 +146,28 @@ be related to [mass](https://github.com/ttm/mass) (install
 via ``pip install music``) - that'd likely replace the current
 ``.wav`` file generation code that produces modem noise.
 
+Things along these lines that are a work-in-progress:
+
+- added a ``time_dilation`` feature but it didn't seem to make
+    much real diff 
+
 - figure out/guess some b/w number
     - 1MB/s (8Mbps) as a default 
     - @ 44.1KHz sample rate that means 181 rx/tx'd bits/audio-sample
     - base note duration on that
+
+- did the re-hit note up/down thing and now get loads of
+  arpeggio-like things, not right still - maybe bump by
+  some other interval (there's a TODO in ``avoid2keypresses``)
+
+- added first playing with velocity/loudness changes
+     - "midloud" to vary velocity between min and max based on
+       sine of where we are in the overall tune (so max about
+       the middle)
+
+- added another ensemble (mapping of midi channels to
+  instrumennts); not as much difference as expected but more
+  playing to be done
 
 ## Tools used
 
@@ -227,3 +232,5 @@ Things I looked at, in less or lesser detail...
   files to abc form. Sadly, the latter too barfs on those abc files
   complaining that there are too many notes in a chord, which is 
   not unreasonable really.
+- A java thing to check out [aeolian](https://github.com/andeemarks/aeolian)
+- A linux journal [article](https://www.linuxjournal.com/content/algorithmic-music-composition-linux-athenacl)
