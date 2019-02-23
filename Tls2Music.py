@@ -68,19 +68,15 @@ lowest_note=20
 # highest note (Hz)
 highest_note=4000
 
-# time dilation - stretch it all out by this factor
-# not sure effects are of much interest - does make
-# it all take longer though:-)
-time_dilation=1
-
-# midi output wanted
-domidi=True
-
-# wav output wanted
-dowav=False
-
 # label for output files
 label=None
+
+# time dilation - stretch it all out by this factor
+# effects aren't of much interest though - does make
+# it all take longer:-)
+# as it's less interesting, this is not a command line
+# argument
+time_dilation=1
 
 class tls_session_set():
     '''
@@ -147,25 +143,25 @@ instarr_1=[
 
 # try another, aiming for a softer noise
 instarr_2=[ 
-        71, # clarinet
         56, # trumpet
         57, # trombone
         68, # oboe 
+        42, # cello
 
+        66, # tenor sax
         24, # acoustic guitar
         33, # electric bass
-        42, # cello
-        11, # Vibraphone
+        71, # clarinet
 
         40, # violin
         72, # flute
+        11, # Vibraphone
         6, # Harpsichord
-        14, # Tubular Bells
 
         22, # Harmonica
+        14, # Tubular Bells
         38, # Synth Bass 1
         48, # String Ensemble 1
-        66, # tenor sax
         ]
 
 instarr=instarr_2
@@ -511,8 +507,8 @@ def velocity(notenum,channel,offset,duration,overall_duration):
         # but still keep earlier channels louder
         # 81 is max, 40 is min
         sine_adjust=math.sin(math.pi*offset/overall_duration)
-        maxvel=81
-        minvel=40
+        maxvel=127
+        minvel=60
         nchans=15
         dperchan=0.5*(maxvel-minvel)/nchans
         vel=maxvel-minvel-channel*dperchan

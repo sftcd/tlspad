@@ -94,6 +94,10 @@ on that path that I should fix, but I've (probably) not yet;-)
     - There may be more to getting ``timidity`` to work, but it just worked for me on
     my 2nd box with the above. 
 
+    - To generate plots of the sounds, we use ``sox`` (and maybe ``octave`` or ``gnuplot``), so:
+
+            $ sudo apt install sox octave gunplot
+
 	- After all that you should be able to use ``composer.sh`` to get the noise for a URL, e.g.:
 
 			$ $SRCDIR/composer.sh -u https://ietf.org/

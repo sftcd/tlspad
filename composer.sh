@@ -266,6 +266,7 @@ then
                 echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN"
             fi
             $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
+
         fi
 
     done
@@ -281,18 +282,21 @@ then
     $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
 fi
 
-# TODO: finer grained control of which csvs to (re-)map to midis
 # Now map the csvs to midis (if there are any - that's the first
-# if statement 
+# if statement) and ogg and png 
 csvs=(*.midi.csv)
 if [ -e  "${csvs[0]}" ];
 then
     for file in *.midi.csv
     do
         mf=`basename $file .csv`
+        df=`basename $mf .midi`
         if [ $file -nt $mf ]
         then
             csvmidi $file $mf
+            timidity $mf -Ov -o $df.ogg
+            sox $df.ogg -n spectrogram
+            mv spectrogram.png $df.png
         else
             echo "Skipping $file as $mf is newer"
         fi
@@ -306,9 +310,13 @@ if [[ "$NOCLEAN" == "no" && "$TDIR" != "" ]]
 then
     # clean up
     mv $TDIR/*.midi $ODIR
+    mv $TDIR/*.ogg $ODIR
+    mv $TDIR/*.png $ODIR
     rm -rf $TDIR
 else
     echo "Full Results in $TDIR - please clean it up"
     cp $TDIR/*.midi $ODIR
+    cp $TDIR/*.ogg $ODIR
+    cp $TDIR/*.png $ODIR
 fi
 

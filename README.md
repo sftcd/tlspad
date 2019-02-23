@@ -138,8 +138,6 @@ terms of things to play about with (other than just tidying code) are:
 ``timidity`` - need to check and fix
     - changing the min,max note lengths to 500,1500 from 100,1000 (ms)
     seems to have some effect, but doesn't solve the issue
-    - could be related to the above if what it really means is
-    we're hitting the same note, whilst it's already on
 
 - play some more with the python ``music`` library which seems to
 be related to [mass](https://github.com/ttm/mass) (install 
@@ -234,3 +232,6 @@ Things I looked at, in less or lesser detail...
   not unreasonable really.
 - A java thing to check out [aeolian](https://github.com/andeemarks/aeolian)
 - A linux journal [article](https://www.linuxjournal.com/content/algorithmic-music-composition-linux-athenacl)
+- A way to make a nice [plot](https://stackoverflow.com/questions/5826701/plot-audio-data-in-gnuplot) - might add to composer
+- [this](https://github.com/jdesbonnet/audio-to-waterfall-plot-video/blob/master/make-waterfall-video.sh) script can make
+ a video from audio, maybe worth a look, probably needs modification.
