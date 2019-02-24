@@ -71,12 +71,24 @@ highest_note=4000
 # label for output files
 label=None
 
+# as the one's below are less interesting, (so far) they are not 
+# currently command line arguments
+
 # time dilation - stretch it all out by this factor
 # effects aren't of much interest though - does make
 # it all take longer:-)
-# as it's less interesting, this is not a command line
-# argument
 time_dilation=1
+
+
+# MIDI velicity max, min and number of channels we can use
+# and size of channel velocity increment (for overlapping
+# key-on conditions) - minvel and nchans could be command
+# line arguments, the others don't make sense to vary that
+# way
+maxvel=127
+minvel=60
+nchans=15
+velinc=(maxvel-minvel)/nchans
 
 class tls_session_set():
     '''
@@ -390,7 +402,7 @@ def scaletime(x):
 # 2-up or 2-down at a time via the off_increment var below (i.e. maybe
 # try for chords somehow)
 def avoid2keypresses(midicsv):
-    a2kpverbose=False
+    a2kpverbose=args.verbose
     newline=True
     keys = [False] * 128
     channelno=0
@@ -415,6 +427,27 @@ def avoid2keypresses(midicsv):
             # don't - find a nearby key instead
             if a2kpverbose:
                 print("new key needed for " + str(line))
+            # well
+            '''
+            # thing to try - instead of moving key, if velocity is not
+            # too bad, try bump the velocity instead and pretend all's
+            # this needs more work but could be promising - the more
+            # work is that I need to go down the list of other key
+            # presses that overlap and ensure a) we keep bumping the
+            # volume and b) we don't turn it off too soon - that
+            # implies we might be better doing the volume trick
+            # earlier in the process (or re-factoring the lot:-)
+            svel=line[5]
+            if svel<=(maxvel-velinc):
+                nvel=svel+velinc
+                line[5]=int(nvel) # just in case we get fractional value
+                if a2kpverbose:
+                    print("new volume ("+str(nvel)+") setting ("+str(svel)+"<="+str(maxvel)+"-"+str(velinc)+") for " + str(line))
+                continue
+            else:
+                if a2kpverbose:
+                    print("no new volume setting ("+str(svel)+"<="+str(maxvel)+"-"+str(velinc)+") for " + str(line))
+            '''
             thisind=midicsv.index(line)
             last=len(midicsv)
             fixed=False
@@ -507,9 +540,6 @@ def velocity(notenum,channel,offset,duration,overall_duration):
         # but still keep earlier channels louder
         # 81 is max, 40 is min
         sine_adjust=math.sin(math.pi*offset/overall_duration)
-        maxvel=127
-        minvel=60
-        nchans=15
         dperchan=0.5*(maxvel-minvel)/nchans
         vel=maxvel-minvel-channel*dperchan
         newvel=minvel+int(vel*sine_adjust)
@@ -881,9 +911,9 @@ for w in the_arr:
     for note in w.notes:
         # odd structure here is so we can sort on time in a sec...
         # let's play with different velocities see what that does...
-        midicsv.append([note[5]+2,note[7],",note_on_c,",note[5],note[6],","+str(note[9])])
+        midicsv.append([note[5]+2,note[7],",note_on_c,",note[5],note[6],note[9]])
         # might make the above a parameter, but not yet
-        midicsv.append([note[5]+2,note[8],",note_off_c,",note[5],note[6],",0"])
+        midicsv.append([note[5]+2,note[8],",note_off_c,",note[5],note[6],0])
     
     # now sort again by time
     midicsv.sort(key=itemgetter(1))
@@ -921,7 +951,7 @@ for w in the_arr:
                 f.write(str(current_track)+', 0, Instrument_name_t, "channel '+str(current_track-2)+' misc"\n')
                 f.write(str(current_track)+', 0, Program_c,'+str(current_track-2)+','+ instrument(instrumentnum,current_track-2) + '\n')
             last_track_end=line[1]
-            f.write(str(line[0])+","+str(line[1])+line[2]+str(line[3])+","+str(line[4])+line[5]+"\n")
+            f.write(str(line[0])+","+str(line[1])+line[2]+str(line[3])+","+str(line[4])+","+str(line[5])+"\n")
         f.write(str(current_track)+', '+str(last_track_end)+', End_track\n')
         f.write('0, 0, End_of_file\n')
         f.close()
