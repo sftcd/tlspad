@@ -294,9 +294,11 @@ then
         if [ $file -nt $mf ]
         then
             csvmidi $file $mf
-            timidity $mf -Ov -o $df.ogg
-            sox $df.ogg -n spectrogram
-            mv spectrogram.png $df.png
+            timidity --quiet $mf -Ov -o $df.ogg
+            # we'd like all spectra to be 30s wide so pad with 30s silence
+            sox -n -r 44100 -c 2 silence.ogg trim 0.0 30.0
+            # then truncate back to 30s for graphic
+            sox $df.ogg silence.ogg -n spectrogram -o $df.png -d 30.0 -x 1000 trim 0.0 30.0 
         else
             echo "Skipping $file as $mf is newer"
         fi

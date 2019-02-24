@@ -69,3 +69,9 @@ function canisudo()
     fi
 }
 CANISUDO=$(canisudo)
+
+# map a string like 3241 into 3.241
+function decimal_thou {
+    whole=$(($1/1000))
+    echo "$whole.${1:${#1}-3:${#1}-1}"
+}

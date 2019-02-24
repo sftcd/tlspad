@@ -73,11 +73,6 @@ later.
         off
         - Leave it for now, hope to learn more about it as we go
 
-    - A bug seen a while back that I guess may be related to selenium (no idea of cause or effect;-): 
-
-            *** BUG ***
-            In pixman_region32_init_rect: Invalid rectangle passed
-            Set a breakpoint on '_pixman_log_error' to debug
 
 - [composer.sh](composer.sh) is a wrapper for the above:
 
@@ -109,6 +104,7 @@ later.
     fail (blocking) from time to time. Killing the test browser seens to get 
     things to move along ok, albeit we miss that measurement.
     - This script may need ``sudo`` depending on how you'v setup packet capture.
+    - Added production of output .ogg audio file and spectrogram .png file
 
 - [ignore-stubby.sh](ignore-stubby.sh) generates (or updates) the ``ignore.addrs``
 file, with the ``addresss_data`` found in ``/etc/stubby/stubby.cfg. Those are
