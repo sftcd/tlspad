@@ -30,6 +30,10 @@
 # checked by Tls2Music.py. File has one IP per line. Whitespace will be
 # chewed, other stuff (e.g. comment line at top) ignored.
 
+# optional argument is the file to put stuff in...
+
+# TODO: add ports too, need to modify Tls2Music.py for that.
+
 STUBBYCFG="/etc/stubby/stubby.yml"
 IGFILE="ignore.addrs"
 
@@ -38,6 +42,11 @@ then
     # nothing to do
     exit 0
 fi 
+
+if [[ "$1" != "" ]]
+then
+    IGFILE=$1
+fi
 
 # extract addrs (ipv4 and ipv6) ...
 IPs=`grep address_data $STUBBYCFG | grep -v '^#' | awk '{print $3}' | sort | uniq `
