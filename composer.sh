@@ -134,7 +134,6 @@ then
     fi
 fi
 
-
 # we'll do the actual pcap capture stuff later as we'll want the
 # option of running a headless browser and doing it all locally, or, 
 # provding some UI prompts for the case where the user runs a real 
@@ -167,6 +166,9 @@ then
         exit 1
     fi
     cd $TDIR
+
+    # drop some meta-data into there
+    $SRCDIR/whowhere.sh $0 $* >>README.md
 
     if [[ "$GENIGNORE" == "yes" ]]
     then
@@ -303,7 +305,7 @@ then
     done
 fi
 
-# One-shot analysis to generate the csvmidi files (and optonal .wavs)
+# Possibly ignore stubby
 if [[ "$SKIP" == "no" && "$URL" == "" ]]
 then
     if [[ "$GENIGNORE" == "yes" ]]
@@ -355,6 +357,7 @@ then
     mv $TDIR/*.ogg $ODIR
     mv $TDIR/*.png $ODIR
     mv $TDIR/*.srvadd $ODIR
+    mv $TDIR/README.md $ODIR
     rm -rf $TDIR
 else
     echo "Full Results in $TDIR - please clean it up"
@@ -362,5 +365,6 @@ else
     cp $TDIR/*.ogg $ODIR
     cp $TDIR/*.png $ODIR
     cp $TDIR/*.srvadd $ODIR
+    cp $TDIR/README.md $ODIR
 fi
 

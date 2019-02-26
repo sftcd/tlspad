@@ -39,7 +39,7 @@ IGFILE="ignore.addrs"
 
 if [ ! -f $STUBBYCFG ]
 then
-    # nothing to do
+    # nothing to do - note we exit without creating an output file in this case
     exit 0
 fi 
 

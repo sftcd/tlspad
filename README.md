@@ -33,9 +33,12 @@ Notes about what you need to install are [here](depends.md). Might turn that int
 later.
 
 - [dumper.sh](dumper.sh) is a bash script that's a small wrapper on tshark or tcpdump
-    - [functions.sh](functions.sh) has some bash utility stuff I tend to re-use
 
-- [data2server.sh](data2server.sh) rsync's stuff up to a server
+- Some little utilities:
+    - [functions.sh](functions.sh) has some bash utility stuff I tend to re-use
+    - [data2server.sh](data2server.sh) rsync's stuff up to a server
+    - [whowhere.sh](whowhere.sh) generates a bit of meta-data for a run to help 
+    me understand what's what later
 
 - [TlsPadFncs.py](TlsPadFncs.py) has classes and functions that are used by...
 
@@ -233,3 +236,9 @@ Things I looked at, in less or lesser detail...
 - A way to make a nice [plot](https://stackoverflow.com/questions/5826701/plot-audio-data-in-gnuplot) - might add to composer
 - [this](https://github.com/jdesbonnet/audio-to-waterfall-plot-video/blob/master/make-waterfall-video.sh) script can make
  a video from audio, maybe worth a look, probably needs modification.
+- A [paper](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0195948) on 
+  "sonification of network traffic" by (I guess a student of) [Paul Vickers](https://paulvickers.github.io/chat/public/Network-sonification/)
+  who seems to work in this space.
+  Not quite the same thing, but has similarities and I need to check out the references to
+  earlier work, some of those sound more similar.
+
