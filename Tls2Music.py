@@ -185,27 +185,57 @@ def selector_match(s,sels,sl=""):
     check if TLS session matches selector
     selector is a (list of) IP prefixes (v4/v6)
     '''
-    #print("Sels="+str(sels)+" type(sels): " + str(type(sels)) + " sl: " + str(sl))
+    matches=False
+    thesel=""
+    mbranch="0"
+    #smverbose=args.verbose:
+    smverbose=False
+    if smverbose:
+        print("Checking " + str(s.sess_id) +  " vs. Sels="+str(sels)+" type(sels): " + str(type(sels)) + " sl: " + str(sl))
+        print("src: " + s.src + " dst: " + s.dst)
     if type(sels)==str and sels=='all': 
-        #print("R1")
-        return True
-    if type(sels)==str and sels=='src' and sl is not None and sl==s.src: 
-        #print("R2")
-        return True
-    if type(sels)==str and sels=='dst' and sl is not None and sl==s.dst: 
-        #print("R3")
-        return True
-    if type(sels)==list:
-        for sel in sels:
-            ipsel=ipaddress.ip_network(sel)
-            if ipaddress.ip_address(s.src) in ipsel:
-                #print("R4")
-                return True, s.src
-            if ipaddress.ip_address(s.dst) in ipsel:
-                #print("R5")
-                return True, s.dst
-    #print("R6")
-    return False
+        mbranch="1"
+        matches=True
+        thesel="all"
+    elif type(sels)==str and sels=='src' and sl is not None and sl==s.src: 
+        mbranch="2"
+        matches=True
+        matches=True
+        thesel="src"
+    elif type(sels)==str and sels=='dst' and sl is not None and sl==s.dst: 
+        mbranch="3"
+        matches=True
+        thesel="dst"
+    elif type(sels)==list:
+        if sl is not None:
+            if s.src==sl:
+                mbranch="6"
+                matches=True
+                thesel=sl
+            elif s.dst==sl:
+                mbranch="7"
+                matches=True
+                thesel=sl
+        if not matches:
+            for sel in sels:
+                ipsel=ipaddress.ip_network(sel)
+                if smverbose:
+                    print("Inner checking " + s.src + " vs: " + str(ipsel))
+                if ipaddress.ip_address(s.src) in ipsel:
+                    mbranch="4"
+                    matches=True
+                    thesel=s.src
+                if not matches and smverbose:
+                    print("Inner checking " + s.dst + " vs: " + str(ipsel))
+                if not matches and ipaddress.ip_address(s.dst) in ipsel:
+                    mbranch="5"
+                    matches=True
+                    thesel=s.dst
+                if matches:
+                    break
+    if smverbose:
+        print("Checked " + str(s.sess_id) +  " vs. " + str(sels) + " result: " + str(matches) + " " + thesel + " branch:" + mbranch)
+    return matches,thesel
 
 def size2freqdur(size,minsize,maxsize,nsizes,c2s_direction,lowfreq,highfreq):
     # map a (packet) size into a frequency and duration based on the low 
@@ -233,13 +263,21 @@ def size2freqdur(size,minsize,maxsize,nsizes,c2s_direction,lowfreq,highfreq):
     freq=bottomstep+normalised*(topstep-bottomstep)
     return freq, duration
 
-def find_set(s,sels,session_sets):
+def find_set(s,session_sets):
     '''
     search for tls_session_set mwith matching IPs
     '''
+    if len(session_sets)==0:
+        if args.verbose:
+            print("find_set: Empty set of session_sets!")
     for w in session_sets:
-        if selector_match(s,sels,w.selector):
-            return w
+        for s1 in w.sessions:
+            if s.sess_id==s1.sess_id:
+                #if args.verbose:
+                    #print("find_set picked:"+str(w))
+                return w
+    if args.verbose:
+        print("find_set picked none!")
     return None
 
 def init_key():
@@ -402,7 +440,8 @@ def scaletime(x):
 # 2-up or 2-down at a time via the off_increment var below (i.e. maybe
 # try for chords somehow)
 def avoid2keypresses(midicsv):
-    a2kpverbose=args.verbose
+    a2kpverbose=False
+    #a2kpverbose=args.verbose
     newline=True
     keys = [False] * 128
     channelno=0
@@ -649,7 +688,8 @@ if args.vantage is not None:
         try:
             with open(args.vantage) as vf:
                 selectors=vf.readlines()
-            selectors = [x.strip() for x in selectors]
+            # chew whitespace and CRLFs
+            selectors = [x.strip() for x in selectors if not x.startswith('#')]
         except:
             print("Error reading IP prefixes from " + args.vantage + " - exiting")
             sys.exit(2)
@@ -729,7 +769,8 @@ for s in sessions:
     w=None
     #print("Len-ta="+str(len(the_arr)))
     for sl in the_arr:
-        if w is None and selector_match(s,selectors,sl.selector):
+        matches,sel=selector_match(s,selectors,sl.selector)
+        if w is None and matches:
             if args.verbose:
                 print("Selecting session: " + s.src + "->" + s.dst)
             w=sl
@@ -799,9 +840,11 @@ for s in sessions:
         if args.verbose:
             print("Still ignoring session: " + s.src + "->" + s.dst)
         continue
-    w=find_set(s,selectors,the_arr)
+    w=find_set(s,the_arr)
     if w is None:
-        raise ValueError('No details for session: ' + str(s.sess_id) + " from " + s.src + "->"+s.dst )
+        continue
+        #print ("Error - no good sessions: " + str(the_arr))
+        #raise ValueError('No details for session: ' + str(s.sess_id) + " from " + s.src + "->"+s.dst )
     for i in range(0,len(s.s_psizes)):
         freq,dur=size2freqdur(s.s_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,True,lowest_note,highest_note)
         w.notes.append([freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,w.this_session])

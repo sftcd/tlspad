@@ -266,10 +266,50 @@ then
                 echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN"
             fi
             $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
+        fi
 
+        # and now force VANTAGE to the DNSname's A and AAAA
+        # Note the /32 and /128 below can be omitted if you like
+        # and you can use netmasks. For IPv4 netmasks you need to
+        # include zeros e.g. "192.0.2.0/24"
+        ipv4=`dig +short a $DNSname` 
+        ipv6=`dig +short aaaa $DNSname`
+        if [[ "$ipv4" != "" ]]
+        then
+            for add in $ipv4
+            do
+                echo $add"/32" >>$DNSname.srvadd
+            done
+        fi
+        if [[ "$ipv6" != "" ]]
+        then
+            for add in $ipv6
+            do
+                echo $add"/128" >>$DNSname.srvadd
+            done
+        fi
+        if [ -f $DNSname.srvadd ]
+        then
+            # generate the music you'd see if you just monitored the server side
+            VANTAGE=" -V $DNSname.srvadd"
+            thisLABEL=" -l $DNSname-server-vantage"
+            if [[ "$VERBOSE" != "" ]]
+            then
+                echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN"
+            fi
+            $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
         fi
 
     done
+fi
+
+# One-shot analysis to generate the csvmidi files (and optonal .wavs)
+if [[ "$SKIP" == "no" && "$URL" == "" ]]
+then
+    if [[ "$GENIGNORE" == "yes" ]]
+    then
+        $SRCDIR/ignore-stubby.sh
+    fi
 fi
 
 # One-shot analysis to generate the csvmidi files (and optonal .wavs)
@@ -314,11 +354,13 @@ then
     mv $TDIR/*.midi $ODIR
     mv $TDIR/*.ogg $ODIR
     mv $TDIR/*.png $ODIR
+    mv $TDIR/*.srvadd $ODIR
     rm -rf $TDIR
 else
     echo "Full Results in $TDIR - please clean it up"
     cp $TDIR/*.midi $ODIR
     cp $TDIR/*.ogg $ODIR
     cp $TDIR/*.png $ODIR
+    cp $TDIR/*.srvadd $ODIR
 fi
 
