@@ -35,6 +35,8 @@ later.
 - [dumper.sh](dumper.sh) is a bash script that's a small wrapper on tshark or tcpdump
     - [functions.sh](functions.sh) has some bash utility stuff I tend to re-use
 
+- [data2server.sh](data2server.sh) rsync's stuff up to a server
+
 - [TlsPadFncs.py](TlsPadFncs.py) has classes and functions that are used by...
 
 - [TLSPacketSizes.py](TLSPacketSizes.py) does some simple per-session counts of TLS packet sizes in PCAP files 
