@@ -693,6 +693,13 @@ if args.vantage is not None:
         except:
             print("Error reading IP prefixes from " + args.vantage + " - exiting")
             sys.exit(2)
+        # check if those are really IP addresses/prefixes, if not - chuck 'em
+        for sel in selectors:
+            try:
+                ipsel=ipaddress.ip_network(sel)
+            except:
+                selectors.remove(sel)
+                print("Chucking " + sel + " as it doesn't seem to be an IP address")
     if args.verbose:
         print("Vantage point set, selectors: " + str(selectors))
 
