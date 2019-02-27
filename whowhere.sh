@@ -57,7 +57,3 @@ fi
 echo "ifconfig output: " 
 ifconfig  | sed -e 's/^/    /'
 
-echo "==================================================="
-
-
-

@@ -168,7 +168,11 @@ then
     cd $TDIR
 
     # drop some meta-data into there
-    $SRCDIR/whowhere.sh "$0 $@" >>README.md
+    $SRCDIR/whowhere.sh "$0 $options $*" >>README.md
+    # whack in the URLs as well in case they were in a file
+    echo "URLS: $url_list" >>README.md
+    echo "===================================================" >> README.md
+    echo "" >>README.md
 
     if [[ "$GENIGNORE" == "yes" ]]
     then
@@ -229,25 +233,25 @@ then
             kill $dpid >/dev/null 2>&1 
             if [[ "$CANISUDO" == "yes" ]]
             then
-                sudo killall tcpdump >/dev/null 2>&1 
-                sudo killall tshark >/dev/null 2>&1 
+                sudo killall -wq tcpdump >/dev/null 2>&1 
+                sudo killall -wq tshark >/dev/null 2>&1 
             else
                 # try anyway, probably barf
                 echo "Trying to killall tcpdump, tshark without sudo - might fail!"
-                killall tcpdump >/dev/null 2>&1 
-                killall tshark >/dev/null 2>&1 
+                killall -wq tcpdump >/dev/null 2>&1 
+                killall -wq tshark >/dev/null 2>&1 
             fi
         else
             kill $dpid >/dev/null 
             if [[ "$CANISUDO" == "yes" ]]
             then
-                sudo killall tcpdump
-                sudo killall tshark 
+                sudo killall -wq tcpdump
+                sudo killall -wq tshark 
             else
                 # try anyway, probably barf
                 echo "Trying to killall tcpdump, tshark without sudo - might fail!"
-                killall tcpdump >/dev/null 2>&1 
-                killall tshark >/dev/null 2>&1 
+                killall -wq tcpdump >/dev/null 2>&1 
+                killall -wq tshark >/dev/null 2>&1 
             fi
         fi
 
@@ -340,7 +344,12 @@ then
         if [ $file -nt $mf ]
         then
             csvmidi $file $mf
-            timidity --quiet $mf -Ov -o $df.ogg
+            if [[ "$VERBOSE" != "" ]]
+            then
+                timidity $mf -Ov -o $df.ogg
+            else
+                timidity --quiet $mf -Ov -o $df.ogg >/dev/null 2>&1
+            fi
             # we'd like all spectra to be 30s wide so pad with 30s silence
             sox -n -r 44100 -c 2 silence.ogg trim 0.0 30.0
             # then truncate back to 30s for graphic
