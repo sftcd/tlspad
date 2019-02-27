@@ -168,7 +168,7 @@ then
     cd $TDIR
 
     # drop some meta-data into there
-    $SRCDIR/whowhere.sh $0 $* >>README.md
+    $SRCDIR/whowhere.sh "$0 $@" >>README.md
 
     if [[ "$GENIGNORE" == "yes" ]]
     then
@@ -274,6 +274,10 @@ then
         # Note the /32 and /128 below can be omitted if you like
         # and you can use netmasks. For IPv4 netmasks you need to
         # include zeros e.g. "192.0.2.0/24"
+        # TODO: The commands below end up with CNAMEs in the
+        # file. Either stop that happening or make the python
+        # code not barf on it. (Having checked out if the python
+        # code does in fact barf on it, but I bet it does:-)
         ipv4=`dig +short a $DNSname` 
         ipv6=`dig +short aaaa $DNSname`
         if [[ "$ipv4" != "" ]]
@@ -357,7 +361,8 @@ then
     mv $TDIR/*.ogg $ODIR
     mv $TDIR/*.png $ODIR
     mv $TDIR/*.srvadd $ODIR
-    mv $TDIR/README.md $ODIR
+    # don't kill old versions of this, just add to 'em
+    cat $TDIR/README.md >>$ODIR/README.md
     rm -rf $TDIR
 else
     echo "Full Results in $TDIR - please clean it up"
@@ -365,6 +370,7 @@ else
     cp $TDIR/*.ogg $ODIR
     cp $TDIR/*.png $ODIR
     cp $TDIR/*.srvadd $ODIR
-    cp $TDIR/README.md $ODIR
+    # don't kill old versions of this, just add to 'em
+    cat $TDIR/README.md >>$ODIR/README.md
 fi
 
