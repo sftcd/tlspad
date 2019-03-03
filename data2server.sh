@@ -32,7 +32,7 @@ DEFRDIR=data/tlspad
 DEFLOCALHOST="somemachine"
 
 # just simple command line args
-# usage: data2server.sh [server-name [local-directory [ remote-dir]]]
+# usage: data2server.sh [[remote-user@]server-name [local-directory [ remote-dir]]]
 # where directory
 
 if [[ "$1" != "" ]]
@@ -41,6 +41,14 @@ then
 else
     server=$DEFSERV
 fi
+
+# if server has an '@' char then user was specified on
+# command line, if not then, not, so nothing to be done:-) 
+
+# TODO: could be good to check if $1 has an '@' char and
+# if so see if it's the last char, so basicall handle all
+# the options. For now, we don't, since I don't need to
+# do that.
 
 # figure out home dir on remote - also verfiies we can ssh
 rhome=`ssh $server /bin/pwd`

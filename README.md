@@ -126,6 +126,17 @@ This code is very messy at the moment and badly needs a tidy-up/refactoring.
 I've started that. It'll need a couple of iterations. Next up in
 terms of things to play about with (other than just tidying code) are:
 
+- check for and optionally remove more IPs - looks like selenium
+  does some start-up downloading, either turn that off or take it
+  out
+
+- try allocate sessions -> instruments/channels more deterministically;
+  maybe primary session (checking CNAMEs?); not sure of ordering to
+  use and checking which are primary will be tricky
+
+- systematically try other instruments, and ensembles of those,
+  to find more memorable sounds (maybe include channel 10/drums)
+
 - note length/freq currently chosen via a simple normalisation
   (basically percent between min and mix) but I seem to see
   lots of sessions with v. few packet sizes which means I get
