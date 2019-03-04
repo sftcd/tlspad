@@ -50,6 +50,10 @@ fi
 # the options. For now, we don't, since I don't need to
 # do that.
 
+# Note that having this work for some of my boxen needs
+# me to have specified ForwardAgent=yes in an ssh config
+# file.
+
 # figure out home dir on remote - also verfiies we can ssh
 rhome=`ssh $server /bin/pwd`
 sshres=$?

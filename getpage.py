@@ -72,9 +72,13 @@ def main():
         browser = webdriver.Firefox()
 
     #browser shall call the URL
-    browser.get(args.url)
-    time.sleep(10)
-    browser.quit()
+    try:
+        browser.get(args.url)
+        time.sleep(10)
+        browser.quit()
+    except Exception as s:
+        print("Excepton: " + str(s))
+        browser.quit()
 
 if __name__ == "__main__":
     main()
