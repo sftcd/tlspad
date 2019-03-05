@@ -56,12 +56,21 @@ on that path that I should fix, but I've (probably) not yet;-)
 
             $ sudo -H  pip3 install selenium
 
-    - We also need geckdriver, I followed [these](https://askubuntu.com/questions/870530/how-to-install-geckodriver-in-ubuntu) instructions:
+    - For FF we also need geckodriver, I followed [these](https://askubuntu.com/questions/870530/how-to-install-geckodriver-in-ubuntu) instructions:
 
             $ wget https://github.com/mozilla/geckodriver/releases/download/v0.24.0/geckodriver-v0.24.0-linux64.tar.gz
             $ tar -xzvf geckodriver-v0.24.0-linux64.tar.gz
-            $ chmod u+x getckodriver
+            $ chmod 755 getckodriver
             $ sudo cp geckodriver /usr/local/bin
+
+    - For Opera, there's a driver [here](https://github.com/operasoftware/operachromiumdriver/releases), and we'll try
+        a similar process:
+
+            $ wget https://github.com/operasoftware/operachromiumdriver/releases/download/v.2.42/operadriver_linux64.zip
+            $ unzip operadriver_linux64.zip
+            $ cd operadriver_linux64/
+            $ chmod 755 operadriver
+            $ sudo cp operadriver /usr/local/bin
 
     - The ``getpage.py`` should work if given a URL, the headless browser will
     pop up (depending on your DISPLAY settings), load the page and then exit a few

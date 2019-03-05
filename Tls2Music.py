@@ -418,7 +418,7 @@ def scaletime(x):
     '''
     mapped=0
     if x < 0:
-        raise ValueError('negative X in scaletime - ' + str(x) + ' - exiting')
+        raise ValueError(sys.argv[0] + ': negative X in scaletime - ' + str(x) + ' - exiting')
     elif x <= 1000:
         mapped=int(2.5*x)
         #print("Mapped1: "+str(x)+" to: "+str(mapped)) 
@@ -669,7 +669,7 @@ if args.label is not None:
 
 if args.notegen is not None:
     if args.notegen != "table" and args.notegen != "freq":
-        print("Error: -N [table|freq] needed, value given: |" + str(args.notegen) + "| - exiting")
+        print(sys.argv[0] + ": Error: -N [table|freq] needed, value given: |" + str(args.notegen) + "| - exiting")
         print(args.notegen)
         sys.exit(2)
 
@@ -691,7 +691,7 @@ if args.vantage is not None:
             # chew whitespace and CRLFs
             selectors = [x.strip() for x in selectors if not x.startswith('#')]
         except:
-            print("Error reading IP prefixes from " + args.vantage + " - exiting")
+            print(sys.argv[0] + ": Error reading IP prefixes from " + args.vantage + " - exiting")
             sys.exit(2)
         # check if those are really IP addresses/prefixes, if not - chuck 'em
         for sel in selectors:
@@ -720,7 +720,7 @@ for onename in fodname.split():
             flist.add(onename)
 
 if len(flist)==0:
-    print("No input files found - exiting")
+    print(sys.argv[0]+ ": No input files found - exiting")
     sys.exit(1)
 
 # our array of TLS sessions
@@ -838,7 +838,7 @@ for s in sessions:
 
 # Could be selectors given mean we have no sessions to handle
 if len(the_arr)==0:
-    print("No sessions selected - exiting")
+    print(sys.argv[0] + ": No sessions selected - exiting")
     sys.exit(0)
 
 # loop again through sessions to pick up PDU details

@@ -43,8 +43,10 @@
 #   sudo mv geckodriver /usr/local/bin/
 # Not sure if the order there's correct but roughly
 
-from selenium import webdriver
 import time,sys,os,re,glob,argparse
+from selenium import webdriver
+from selenium.webdriver.opera import options
+from selenium.webdriver.common import desired_capabilities
 
 home=os.environ['HOME']
 mozpre="/.mozilla/firefox/"
@@ -57,6 +59,9 @@ argparser.add_argument('-u','--url',
 argparser.add_argument('-v','--verbose',
                     help='produce more output',
                     action='store_true')
+argparser.add_argument('-b','--browser',
+                    help='specify browser [firefox|opera]',
+                    dest="browser")
 args=argparser.parse_args()
 
 if args.url is None:
@@ -64,21 +69,29 @@ if args.url is None:
     sys.exit(1)
 
 def main():
-    if len(tp_names)>=1:
-        if args.verbose:
-            print("Using profile: " + tp_names[0])
-        browser = webdriver.Firefox(tp_names[0])
-    else:
-        browser = webdriver.Firefox()
-
-    #browser shall call the URL
+    browser_inited=False
     try:
+        if args.browser is None or args.browser=="firefox":
+            if len(tp_names)>=1:
+                if args.verbose:
+                    print("Using profile: " + tp_names[0])
+                browser = webdriver.Firefox(tp_names[0])
+            else:
+                browser = webdriver.Firefox()
+        elif args.browser=="opera":
+            opopts=options.ChromeOptions()
+            opcaps=desired_capabilities.DesiredCapabilities.OPERA.copy()
+            browser=webdriver.Opera(desired_capabilities=opcaps,options=opopts)
+    
+        #browser shall call the URL
+        browser_inited=True
         browser.get(args.url)
         time.sleep(10)
         browser.quit()
     except Exception as s:
         print("Excepton: " + str(s))
-        browser.quit()
+        if browser_inited:
+            browser.quit()
 
 if __name__ == "__main__":
     main()

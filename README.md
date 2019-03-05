@@ -128,7 +128,25 @@ terms of things to play about with (other than just tidying code) are:
 
 - check for and optionally remove more IPs - looks like selenium
   does some start-up downloading, either turn that off or take it
-  out
+  out, ones I've seen so far include:
+    - location.services.mozilla.com, seems to be a 20s TTL CNAME
+        to names like: locprod1-elb-eu-west-1.prod.mozaws.net.
+    - snippets.cdn.mozilla.net, seems to be a 60s TTL CNAME to
+        drcwo519tnci7.cloudfront.net.
+    - Both of the above seem to be end up at IPv4 only hosts (afaict).
+        Just blackholing those via /etc/hosts entries doesn't seem to
+        be enough! So, I guess we may need to fetch those IPs just
+        before or after firing up selenium and then discard the 
+        relevant IPs from consideration.
+    - The above was on the TCD n/w from my old laptop.
+    - From home with current laptop (that uses stubby) I only
+      see the snippets.cdn.mozilla.net TLS session (which may
+      be down to detecting the testing TLS profile on that
+      laptop)
+    - With a normal FF startup on current laptop, there's a 
+      depressing number of TLS sessions started. Most are
+      due to stubby (which is expected even if not great) or 
+      ghostery.
 
 - try allocate sessions -> instruments/channels more deterministically;
   maybe primary session (checking CNAMEs?); not sure of ordering to

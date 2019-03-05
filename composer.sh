@@ -32,12 +32,13 @@ SRCDIR=$HOME/code/tlspad
 
 function usage()
 {
-	echo "$0 [-u <url-or-file>] [-f <capture-file/dir>] [-l <label>] [-s limit] [ -i instrument] [-kwvcLSnA]"
+	echo "$0 [-u <url-or-file>] [-f <capture-file/dir>] [-b browser][-l <label>] [-s limit] [ -i instrument] [-kwvcLSnA]"
     echo ""
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
     echo "-u - URL to access, grab, analyse and turn into midi file"
     echo "     This uses: '-l <DNSname> -s 1000 -i -1 -V all'"
+    echo "-b - browser to use: [all|firefox|opera] (default is firefox)"
     echo "-f - name of capture file or directory for capture files (default is '.')"
     echo "-V - vantage point/selectors, can be [all|src|dst|file-name]"
     echo "-i - midi instrument (-1:127; default: 0; -1 means built-in combo)"
@@ -65,6 +66,7 @@ SKIP="no"
 JUSTCLEAN="yes"
 NOCLEAN="no"
 VANTAGE=""
+BROWSER="firefox"
 # default to log time off and 1s suppression as it seems to work nicely
 LOGTIME=""
 SUPPRESS=" -s 1000 "
@@ -92,7 +94,7 @@ URL=""
 TDIR=""
 
 # options may be followed by one colon to indicate they have a required argument
-if ! options=$(getopt -s bash -o IV:nSu:i:sLkchwvf:l: -l ignore,vantage:,noclean,scaled,url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
+if ! options=$(getopt -s bash -o b:IV:nSu:i:sLkchwvf:l: -l browser:,ignore,vantage:,noclean,scaled,url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
 then
 	# something went wrong, getopt will put out an error message for us
 	exit 1
@@ -104,6 +106,7 @@ do
 	case "$1" in
 		-h|--help) usage;;
         -f|--file) JUSTCLEAN="no"; OFILE=$2; shift;;
+        -b|--browser) BROWSER=$2; shift;;
         -u|--url) JUSTCLEAN="no"; URL=$2; shift;;
         -i|--instrument) JUSTCLEAN="no"; INSTRUMENT=" -i $2"; shift;;
         -s|--suppress) JUSTCLEAN="no"; SUPPRESS="-s $2"; shift;;
@@ -129,11 +132,20 @@ then
     rm -f *.midi.csv *.midi *.wav
     if [[ "$JUSTCLEAN" == "yes" ]]
     then
-        echo "Just cleaning - exiting"
+        echo "$0: Just cleaning - exiting"
         exit 0
     fi
 fi
 
+# check browser setting is ok, there could be some parameter
+# needed in future
+case "$BROWSER" in
+    firefox) ;;
+    opera) ;;
+    all) ;;
+    (*) echo "$0: Bad browser value ($BROWSER) - exiting"; exit 2;;
+esac
+        
 # we'll do the actual pcap capture stuff later as we'll want the
 # option of running a headless browser and doing it all locally, or, 
 # provding some UI prompts for the case where the user runs a real 
@@ -162,7 +174,7 @@ then
     ODIR=$PWD
     if [ ! -d $TDIR ]
     then
-        echo "Failed to make temp dir ($TDIR) - exiting"
+        echo "$0: Failed to make temp dir ($TDIR) - exiting"
         exit 1
     fi
     cd $TDIR
@@ -183,7 +195,7 @@ then
         # make sure its https, and barf otherwise
         if [[ ! $url =~ ^https://.* ]] 
         then
-            echo "Bad URL, I only do https for now - exiting"
+            echo "$0: Bad URL, I only do https for now - exiting"
             exit 4
         fi
 
@@ -196,7 +208,7 @@ then
         fi
         if [[ "$DNSname" == "" ]]
         then
-            echo "Can't extract DNS name from $url - exiting"
+            echo "$0: Can't extract DNS name from $url - exiting"
             exit 5
         fi
 
@@ -359,7 +371,8 @@ then
         fi
     done
 else
-    echo "No csvs to process - exiting"
+    echo "$0: No csvs to process - exiting"
+    exit 4
 fi
 
 cd $ODIR

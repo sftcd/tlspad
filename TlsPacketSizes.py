@@ -59,7 +59,7 @@ for onename in fodname.split():
             flist.add(onename)
 
 if len(flist)==0:
-    print("No input files found - exiting")
+    print(sys.argv[0] + ": No input files found - exiting")
     sys.exit(1)
 
 # our array of TLS sessions
