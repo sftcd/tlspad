@@ -190,139 +190,147 @@ then
     then
         $SRCDIR/ignore-stubby.sh
     fi
+    # check which browser(s) to use
+    browser_list="firefox"
+    if [[ "$BROWSER" == "all" ]]
+    then
+        browser_list="firefox opera"
+    fi
     for url in $url_list
     do
-        # make sure its https, and barf otherwise
-        if [[ ! $url =~ ^https://.* ]] 
-        then
-            echo "$0: Bad URL, I only do https for now - exiting"
-            exit 4
-        fi
-
-        # full URLs might not be good parts of file names so we'll pull out
-        # the DNS name and use that
-        DNSname=`echo $url | awk -F/ '{print $3}'`
-        if [[ "$VERBOSE" != "" ]]
-        then
-            echo "DNS: $DNSname"
-        fi
-        if [[ "$DNSname" == "" ]]
-        then
-            echo "$0: Can't extract DNS name from $url - exiting"
-            exit 5
-        fi
-
-        # copy back out the midi file
-        # start capture 
-        if [[ "$VERBOSE" == ""  ]]
-        then
-            $SRCDIR/dumper.sh -f $DNSname.pcap -s 10000 >/dev/null 2>&1 &
-            dpid=$!
-        else
-            $SRCDIR/dumper.sh -f $DNSname.pcap -s 10000 &
-            dpid=$!
-        fi
-
-        # access a URL via a headless browser
-        # that fails sometimes (blocking, apparently) so we want
-        # to force a fail after a while, 2mins in our case
-        getpage_failed="no"
-        timeout 120s $SRCDIR/getpage.py -u $url $VERBOSE
-        if (( $? != 0 ))
-        then
-            getpage_failed="yes"
-        fi
-
-        # kill off the tcpdump or tshark process
-        sleep 1
-        # if dumper still running, kill it
-        # this doesn't always work...
-        if [[ "$VERBOSE" == ""  ]]
-        then
-            # ... so we'll also kill all capture instances we may have started
-            # should be ok as these aren't usually running but better not add
-            # this as a cron job
-            kill $dpid >/dev/null 2>&1 
-            if [[ "$CANISUDO" == "yes" ]]
+        for browser in $browser_list
+        do
+            # make sure its https, and barf otherwise
+            if [[ ! $url =~ ^https://.* ]] 
             then
-                sudo killall -wq tcpdump >/dev/null 2>&1 
-                sudo killall -wq tshark >/dev/null 2>&1 
-            else
-                # try anyway, probably barf
-                echo "Trying to killall tcpdump, tshark without sudo - might fail!"
-                killall -wq tcpdump >/dev/null 2>&1 
-                killall -wq tshark >/dev/null 2>&1 
+                echo "$0: Bad URL, I only do https for now - exiting"
+                exit 4
             fi
-        else
-            kill $dpid >/dev/null 
-            if [[ "$CANISUDO" == "yes" ]]
-            then
-                sudo killall -wq tcpdump
-                sudo killall -wq tshark 
-            else
-                # try anyway, probably barf
-                echo "Trying to killall tcpdump, tshark without sudo - might fail!"
-                killall -wq tcpdump >/dev/null 2>&1 
-                killall -wq tshark >/dev/null 2>&1 
-            fi
-        fi
 
-        # set the label for later
-        if [[ "$LABEL" == "" ]]
-        then
-            thisLABEL=" -l $DNSname"
-        fi
-
-        # force VANTAGE to all
-        VANTAGE=" -V all "
-
-        if [[ "$getpage_failed" == "no" ]]
-        then
-            # Do the analysis to generate the csvmidi files (and optonal .wavs)
+            # full URLs might not be good parts of file names so we'll pull out
+            # the DNS name and use that
+            DNSname=`echo $url | awk -F/ '{print $3}'`
             if [[ "$VERBOSE" != "" ]]
             then
-                echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN"
+                echo "DNS: $DNSname"
             fi
-            $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
-        fi
-
-        # and now force VANTAGE to the DNSname's A and AAAA
-        # Note the /32 and /128 below can be omitted if you like
-        # and you can use netmasks. For IPv4 netmasks you need to
-        # include zeros e.g. "192.0.2.0/24"
-        # TODO: The commands below end up with CNAMEs in the
-        # file. Either stop that happening or make the python
-        # code not barf on it. (Having checked out if the python
-        # code does in fact barf on it, but I bet it does:-)
-        ipv4=`dig +short a $DNSname` 
-        ipv6=`dig +short aaaa $DNSname`
-        if [[ "$ipv4" != "" ]]
-        then
-            for add in $ipv4
-            do
-                echo $add"/32" >>$DNSname.srvadd
-            done
-        fi
-        if [[ "$ipv6" != "" ]]
-        then
-            for add in $ipv6
-            do
-                echo $add"/128" >>$DNSname.srvadd
-            done
-        fi
-        if [ -f $DNSname.srvadd ]
-        then
-            # generate the music you'd see if you just monitored the server side
-            VANTAGE=" -V $DNSname.srvadd"
-            thisLABEL=" -l $DNSname-server-vantage"
-            if [[ "$VERBOSE" != "" ]]
+            if [[ "$DNSname" == "" ]]
             then
-                echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN"
+                echo "$0: Can't extract DNS name from $url - exiting"
+                exit 5
             fi
-            $SRCDIR/Tls2Music.py -f $DNSname.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
-        fi
 
-    done
+            # copy back out the midi file
+            # start capture 
+            if [[ "$VERBOSE" == ""  ]]
+            then
+                $SRCDIR/dumper.sh -f $DNSname.$browser.pcap -s 10000 >/dev/null 2>&1 &
+                dpid=$!
+            else
+                $SRCDIR/dumper.sh -f $DNSname.$browser.pcap -s 10000 &
+                dpid=$!
+            fi
+
+            # access a URL via a headless browser
+            # that fails sometimes (blocking, apparently) so we want
+            # to force a fail after a while, 2mins in our case
+            getpage_failed="no"
+            timeout 120s $SRCDIR/getpage.py -b $browser -u $url $VERBOSE
+            if (( $? != 0 ))
+            then
+                getpage_failed="yes"
+            fi
+
+            # kill off the tcpdump or tshark process
+            sleep 1
+            # if dumper still running, kill it
+            # this doesn't always work...
+            if [[ "$VERBOSE" == ""  ]]
+            then
+                # ... so we'll also kill all capture instances we may have started
+                # should be ok as these aren't usually running but better not add
+                # this as a cron job
+                kill $dpid >/dev/null 2>&1 
+                if [[ "$CANISUDO" == "yes" ]]
+                then
+                    sudo killall -wq tcpdump >/dev/null 2>&1 
+                    sudo killall -wq tshark >/dev/null 2>&1 
+                else
+                    # try anyway, probably barf
+                    echo "Trying to killall tcpdump, tshark without sudo - might fail!"
+                    killall -wq tcpdump >/dev/null 2>&1 
+                    killall -wq tshark >/dev/null 2>&1 
+                fi
+            else
+                kill $dpid >/dev/null 
+                if [[ "$CANISUDO" == "yes" ]]
+                then
+                    sudo killall -wq tcpdump
+                    sudo killall -wq tshark 
+                else
+                    # try anyway, probably barf
+                    echo "Trying to killall tcpdump, tshark without sudo - might fail!"
+                    killall -wq tcpdump >/dev/null 2>&1 
+                    killall -wq tshark >/dev/null 2>&1 
+                fi
+            fi
+
+            # set the label for later
+            if [[ "$LABEL" == "" ]]
+            then
+                thisLABEL=" -l $DNSname.$browser"
+            fi
+
+            # force VANTAGE to all
+            VANTAGE=" -V all "
+
+            if [[ "$getpage_failed" == "no" ]]
+            then
+                # Do the analysis to generate the csvmidi files (and optonal .wavs)
+                if [[ "$VERBOSE" != "" ]]
+                then
+                    echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN"
+                fi
+                $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
+            fi
+
+            # and now force VANTAGE to the DNSname's A and AAAA
+            # Note the /32 and /128 below can be omitted if you like
+            # and you can use netmasks. For IPv4 netmasks you need to
+            # include zeros e.g. "192.0.2.0/24"
+            # TODO: The commands below end up with CNAMEs in the
+            # file. Either stop that happening or make the python
+            # code not barf on it. (Having checked out if the python
+            # code does in fact barf on it, but I bet it does:-)
+            ipv4=`dig +short a $DNSname` 
+            ipv6=`dig +short aaaa $DNSname`
+            if [[ "$ipv4" != "" ]]
+            then
+                for add in $ipv4
+                do
+                    echo $add"/32" >>$DNSname.srvadd
+                done
+            fi
+            if [[ "$ipv6" != "" ]]
+            then
+                for add in $ipv6
+                do
+                    echo $add"/128" >>$DNSname.srvadd
+                done
+            fi
+            if [ -f $DNSname.srvadd ]
+            then
+                # generate the music you'd see if you just monitored the server side
+                VANTAGE=" -V $DNSname.srvadd"
+                thisLABEL=" -l $DNSname.$browser-server-vantage"
+                if [[ "$VERBOSE" != "" ]]
+                then
+                    echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN"
+                fi
+                $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
+            fi
+        done # browser_list
+    done # url_list
 fi
 
 # Possibly ignore stubby
