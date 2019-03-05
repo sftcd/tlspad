@@ -38,7 +38,7 @@ function usage()
     echo "-h - produce this"
     echo "-u - URL to access, grab, analyse and turn into midi file"
     echo "     This uses: '-l <DNSname> -s 1000 -i -1 -V all'"
-    echo "-b - browser to use: [all|firefox|opera] (default is firefox)"
+    echo "-b - browser to use: [all|firefox|chrome|opera] (default is firefox)"
     echo "-f - name of capture file or directory for capture files (default is '.')"
     echo "-V - vantage point/selectors, can be [all|src|dst|file-name]"
     echo "-i - midi instrument (-1:127; default: 0; -1 means built-in combo)"
@@ -141,6 +141,7 @@ fi
 # needed in future
 case "$BROWSER" in
     firefox) ;;
+    chrome) ;;
     opera) ;;
     all) ;;
     (*) echo "$0: Bad browser value ($BROWSER) - exiting"; exit 2;;
@@ -189,12 +190,13 @@ then
     if [[ "$GENIGNORE" == "yes" ]]
     then
         $SRCDIR/ignore-stubby.sh
+        $SRCDIR/browser-ignores.sh -b "$BROWSER"
     fi
     # check which browser(s) to use
     browser_list="firefox"
     if [[ "$BROWSER" == "all" ]]
     then
-        browser_list="firefox opera"
+        browser_list="firefox opera chrome"
     fi
     for url in $url_list
     do

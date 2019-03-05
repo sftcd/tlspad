@@ -88,7 +88,7 @@ later.
             -h - produce this
             -u - URL to access, grab, analyse and turn into midi file
                 This uses: '-l <DNSname> -s 1000 -i -1 -V all'
-            -b - browser to use: [all|firefox|opera] (default is firefox)
+            -b - browser to use: [all|firefox|chrome|opera] (default is firefox)
             -f - name of capture file or directory for capture files (default is '.')
             -V - vantage point/selectors, can be [all|src|dst|file-name]
             -i - midi instrument (-1:127; default: 0; -1 means built-in combo)
@@ -115,6 +115,11 @@ later.
 - [ignore-stubby.sh](ignore-stubby.sh) generates (or updates) the ``ignore.addrs``
 file, with the ``addresss_data`` found in ``/etc/stubby/stubby.cfg. Those are
 the addresses stubby uses for DoT.
+- [browser-ignores.sh](browser-ignores.sh) fires up each of our browsers with
+a fake localhost URL just to capture the IP addresses to which the browser
+communicates that aren't related to the web site in which we're interested.
+The non-local IPs from that list are added to the ``ignore.addrs`` file.
+
 The ``ignore.addrs`` file causes ``Tls2Music.py`` to skip those addresses when making music.
 Including all the DNS IPs sometimes makes for more boring sound:-)
 

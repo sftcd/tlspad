@@ -72,6 +72,20 @@ on that path that I should fix, but I've (probably) not yet;-)
             $ chmod 755 operadriver
             $ sudo cp operadriver /usr/local/bin
 
+        That works seemingly fine (not checked in detail yet) on my main laptop, but
+        not quite right on my old laptop. Currently, I get an opera window opened 
+        there, but it just has 'data:,' in the location bar and not the URL 
+        requested.
+
+    - For chrome, the driver is [here](https://sites.google.com/a/chromium.org/chromedriver/downloads). The
+        correct choice seems to depend on the version of chrome installed. I have google-chrome version
+        72 currently (on main laptop).
+
+            $ wget https://chromedriver.storage.googleapis.com/72.0.3626.69/chromedriver_linux64.zip
+            $ unzip chromedriver_linux64.zip
+            $ chmod 755 chromedriver
+            $ sudo cp chomedriver /usr/local/bin
+
     - The ``getpage.py`` should work if given a URL, the headless browser will
     pop up (depending on your DISPLAY settings), load the page and then exit a few
     seconds later, e.g.:

@@ -45,7 +45,7 @@
 
 import time,sys,os,re,glob,argparse
 from selenium import webdriver
-from selenium.webdriver.opera import options
+from selenium.webdriver.opera import options as op_options
 from selenium.webdriver.common import desired_capabilities
 
 home=os.environ['HOME']
@@ -65,8 +65,9 @@ argparser.add_argument('-b','--browser',
 args=argparser.parse_args()
 
 if args.url is None:
-    print("No URL supplied - exiting")
+    print(sys.argv[0]+": No URL supplied - exiting")
     sys.exit(1)
+
 
 def main():
     browser_inited=False
@@ -79,9 +80,14 @@ def main():
             else:
                 browser = webdriver.Firefox()
         elif args.browser=="opera":
-            opopts=options.ChromeOptions()
+            opopts=op_options.ChromeOptions()
             opcaps=desired_capabilities.DesiredCapabilities.OPERA.copy()
             browser=webdriver.Opera(desired_capabilities=opcaps,options=opopts)
+        elif args.browser=="chrome":
+            browser=webdriver.Chrome('/usr/local/bin/chromedriver')
+        else:
+            print(sys.argv[0]+": Unsupported browser - " + args.browser + " - exiting")
+            sys.exit(1)
     
         #browser shall call the URL
         browser_inited=True
