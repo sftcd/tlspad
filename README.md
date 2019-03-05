@@ -82,12 +82,13 @@ later.
 - [composer.sh](composer.sh) is a wrapper for the above:
 
             $ ./composer.sh -h 
-            ./composer.sh [-u <url-or-file>] [-f <capture-file/dir>] [-l <label>] [-s limit] [ -i instrument] [-kwvcLSnA]
+            ./composer.sh [-u <url-or-file>] [-f <capture-file/dir>] [-b browser][-l <label>] [-s limit] [ -i instrument] [-kwvcLSnA]
             
             Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:
             -h - produce this
             -u - URL to access, grab, analyse and turn into midi file
                 This uses: '-l <DNSname> -s 1000 -i -1 -V all'
+            -b - browser to use: [all|firefox|opera] (default is firefox)
             -f - name of capture file or directory for capture files (default is '.')
             -V - vantage point/selectors, can be [all|src|dst|file-name]
             -i - midi instrument (-1:127; default: 0; -1 means built-in combo)
