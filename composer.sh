@@ -193,7 +193,7 @@ then
         $SRCDIR/browser-ignores.sh -b "$BROWSER"
     fi
     # check which browser(s) to use
-    browser_list="firefox"
+    browser_list=$BROWSER
     if [[ "$BROWSER" == "all" ]]
     then
         browser_list="firefox opera chrome"
