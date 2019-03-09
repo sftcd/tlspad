@@ -90,6 +90,49 @@ minvel=60
 nchans=15
 velinc=(maxvel-minvel)/nchans
 
+class noteinfo():
+    '''
+    Info about a note/packet
+    '''
+    __slots__ = [
+            # basic fields
+            "freq",
+            "duration",
+            "start",
+            # networking fields
+            "packetsize",
+            "c2s",
+            # midi fields
+            "notenum",
+            "ontime",
+            "offtime",
+            "vel",
+            "channel",
+            ]
+    def __init__(self,f=0,d=0,s=0,p=0,c2s=False,ch=0):
+        self.freq=f
+        self.duration=d
+        self.start=s
+        self.packetsize=p
+        self.c2s=c2s
+        self.notenum=0
+        self.ontime=0
+        self.offtime=0
+        self.vel=0
+        self.channel=ch
+    def __str__(self):
+        s_str="Note: " + str(self.freq) + " Start: " + str(self.start) + " Dur: " + str(self.duration) + "\n\t"  
+        if self.c2s:
+            s_str += " Dir: C->S" 
+        else:
+            s_str += " Dir: S->C" 
+        s_str+=" Size: " + str(self.packetsize) + "\n\t"
+        s_str+=" Notenum: " + str(self.notenum) + " On: " + str(self.ontime) + " Off: " + str(self.offtime) + " Ch: " + str(self.channel) 
+        return(s_str)
+
+def get_start(item):
+    return item.start
+
 class tls_session_set():
     '''
     Each set of TLS sessions will have these parameters
@@ -101,11 +144,11 @@ class tls_session_set():
             'earliest', # overall earliest date
             'latest', # overall latest date
             'overall_duration', # obvious:-)
-            'this_session', # index of this in an array of similar things (could be taken out!)
+            'channel', # index of this in an array of similar things (could be taken out!)
             'notes', # the set of notes in a musical rendering
             'sessions'
             ]
-    def __init__(self,fname="",selector=None,nsessions=0,earliest=sys.maxsize,latest=0,overall_duration=0,this_session=0):
+    def __init__(self,fname="",selector=None,nsessions=0,earliest=sys.maxsize,latest=0,overall_duration=0,channel=0):
         self.fname=fname
         self.selector=selector
         self.nsessions=nsessions
@@ -115,13 +158,13 @@ class tls_session_set():
         else:
             self.latest=latest
         self.overall_duration=overall_duration
-        self.this_session=this_session
+        self.channel=channel
         self.notes=[]
         self.sessions=[]
     def __str__(self):
-        return("Details for " + self.fname + ": session: " + str(self.this_session) + " of " + str(self.nsessions) + "\n" + \
+        return("Details for " + self.fname + ": session: " + str(self.channel) + " of " + str(self.nsessions) + "\n" + \
                 "\t" + "Earliest: " + str("%.02F"%self.earliest) + " Latest: " + str("%.02F"%self.latest) + " Dur: " + str("%.02f"%(self.overall_duration/1000)) + "\n" + \
-                "\t" + "Notes:\n" + '\n'.join(' '.join(map(str,note)) for note in self.notes) + \
+                "\t" + "Notes:\n" + '\n'.join('\t'+str(note) for note in self.notes) + \
                 "\n" + "Session IDs: \n" + '\n'.join('\t'+str(s.sess_id) for s in self.sessions) )
 
 # midi instrument number
@@ -745,7 +788,7 @@ if selectors is None or (selectors is not None and type(selectors)==str and sele
     s=tls_session_set()
     s.selector=selectors
     the_arr.append(s)
-    
+
 # Check if file exists with IPs to ignore...
 # Mostly this is for ignoring DNS queries/answers that tend to  
 # muck up our noise/music and that'd only be seen from some
@@ -759,14 +802,32 @@ try:
     with open(bafile) as ba:
         block_arr=ba.readlines()
     block_arr = [x.strip() for x in block_arr]
-    if args.verbose:
-        print("Ignoring addresses from " + bafile)
-        print(block_arr)
 except:
     pass
 if args.verbose:
     if len(block_arr)==0:
         print("No addresses to ignore from " + bafile + " (maybe file isn't there?)")
+    else:
+        print("Addresses to ignore: " + str(block_arr))
+
+# check if file exists with the IPs of the "primary" server
+# (i.e. A/AAAA for the DNS name we're talking to)
+# if so, then we'll allocate those first instruments with
+# higher volume and allocate the other sessions to instruments
+# and channels based on the list of those sorted by IP address
+primary_arr=[]
+primaryfile="primaries.ips"
+try:
+    with open(primaryfile) as pf:
+        primary_arr=pf.readlines()
+    primary_arr = [x.strip() for x in primary_arr]
+except:
+    pass
+if args.verbose:
+    if len(primary_arr)==0:
+        print("No addresses to prefer from " + primaryfile + " (maybe file isn't there?)")
+    else:
+        print("Addresses to treat as primary: " + str(primary_arr))
 
 for s in sessions:
     if s.dst in block_arr or s.src in block_arr:
@@ -774,13 +835,13 @@ for s in sessions:
             print("Ignoring blocked session: " + s.src + "->" + s.dst)
         continue
     w=None
-    #print("Len-ta="+str(len(the_arr)))
     for sl in the_arr:
         matches,sel=selector_match(s,selectors,sl.selector)
         if w is None and matches:
             if args.verbose:
                 print("Selecting session: " + s.src + "->" + s.dst)
             w=sl
+            break;
     if w is None and type(selectors)==list:
         matches, sel= selector_match(s,selectors)
         if matches:
@@ -850,29 +911,30 @@ for s in sessions:
     w=find_set(s,the_arr)
     if w is None:
         continue
-        #print ("Error - no good sessions: " + str(the_arr))
-        #raise ValueError('No details for session: ' + str(s.sess_id) + " from " + s.src + "->"+s.dst )
     for i in range(0,len(s.s_psizes)):
         freq,dur=size2freqdur(s.s_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,True,lowest_note,highest_note)
-        w.notes.append([freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,w.this_session])
+        n=noteinfo(freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,w.channel)
+        w.notes.append(n)
     for i in range(0,len(s.d_psizes)):
         freq,dur=size2freqdur(s.d_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,False,lowest_note,highest_note)
-        w.notes.append([freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,w.this_session])
+        n=noteinfo(freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,w.channel)
+        w.notes.append(n)
     if len(s.s_psizes)>0 or len(s.d_psizes)>0:
         # midi limit on channels/sessions seems to be max 16 is reliable
         # so we'll re-use and hope for the best if we have >16 TLS sessions 
         # per src IP in a pcap
-        if args.verbose:
+        if args.verbose and w.channel==15:
             print("Warning: >16 TLS sessions in one midi file for " + s.src)
-        w.this_session = (w.this_session + 1) % 16
-        # this_session will map to midi channel, so we'll skip #10 which is drums
+        w.channel = (w.channel + 1) % 16
+        # channel will map to midi channel, so we'll skip #10 which is drums
         # because they don't have so many notes as pianos and we lose information
-        if w.this_session == 9:
-            w.this_session=10
+        if w.channel == 9:
+            w.channel=10
 
 # sort notes timewise
 for w in the_arr:
-    w.notes=sorted(w.notes, key=itemgetter(2))
+    #w.notes=sorted(w.notes, key=itemgetter(2))
+    w.notes=sorted(w.notes, key=get_start)
     if args.verbose:
         print(w)
         print("\n")
@@ -887,45 +949,45 @@ for w in the_arr:
     for note in w.notes:
         # freq2note version
         # table version - default
-        notenum=size2num(note[3],note[4],table)
+        notenum=size2num(note.packetsize,note.c2s,table)
         if args.notegen == 'freq':
-            notenum=freq2num(note[0])
+            notenum=freq2num(note.freq)
         # let's move all notes up by N octaves where N is the channel number and
         # do that modulo our bounds
         low_num=freq2num(lowest_note)
         high_num=freq2num(highest_note)
-        increment=(note[5]*7)%(high_num-low_num)
+        increment=(note.channel*7)%(high_num-low_num)
         notenum = notenum + increment
         if notenum>=high_num:
             notenum -= (high_num-low_num)
         # linear time
-        ontime=time_dilation*int(note[2])
-        offtime=time_dilation*int(note[1]+note[2])
+        ontime=time_dilation*int(note.start)
+        offtime=time_dilation*int(note.start+note.duration)
         # change if log time...
         if args.logtime:
             try:
-                if note[2]==0:
+                if note.start==0:
                     # can happen!
                     ontime=0
                 else:
                     # add a millisecond to avoid negative logs
-                    ontime=time_dilation*int(100*math.log(1+note[2]))
-                if note[1]+note[2]==0:
+                    ontime=time_dilation*int(100*math.log(1+note.start))
+                if note.start+note.duration==0:
                     # shouldn't happen really 
                     print("ouch2! processing " + w.fname)
                     print(str(w))
                     sys.exit(1)
                 else:
                     # add a millisecond to avoid negative logs
-                    offtime=time_dilation*int(100*math.log(1+note[1]+note[2]))
+                    offtime=time_dilation*int(100*math.log(1+note.start+note.duration))
             except Exception as e:
                 print("ouch! processing " + w.fname)
                 print(str(w))
                 sys.exit(1)
         # Try another time compression - log compresses too much
         if args.scaledtime:
-            ontime=time_dilation*scaletime(note[2])
-            offtime=time_dilation*scaletime(note[1]+note[2])
+            ontime=time_dilation*scaletime(note.start)
+            offtime=time_dilation*scaletime(note.start+note.duration)
         # bit of paranoia...
         if ontime < 0.0:
             print("Weird ontime: " + str(ontime))
@@ -933,12 +995,14 @@ for w in the_arr:
         if offtime < 0.0:
             print("Weird offtime: " + str(offtime))
             sys.exit(4)
-        # Earlier channels loudest
-        # velocity = 81-5*channel (aka note[5]) 
-        # vel=int(81-4*note[5])
-        vel=velocity(notenum,note[5],ontime,offtime-ontime,w.overall_duration)
+        # handle velocity (loudness) 
+        vel=velocity(notenum,note.channel,ontime,offtime-ontime,w.overall_duration)
         # add what we've calculated to note, in cols 6-9
-        note.extend([notenum,ontime,offtime,vel])
+        #note.extend([notenum,ontime,offtime,vel])
+        note.notenum=notenum
+        note.ontime=ontime
+        note.offtime=offtime
+        note.vel=vel
     # table version
     # print(table)
     del table
@@ -961,9 +1025,9 @@ for w in the_arr:
     for note in w.notes:
         # odd structure here is so we can sort on time in a sec...
         # let's play with different velocities see what that does...
-        midicsv.append([note[5]+2,note[7],",note_on_c,",note[5],note[6],note[9]])
+        midicsv.append([note.channel+2,note.ontime,",note_on_c,",note.channel,note.notenum,note.vel])
         # might make the above a parameter, but not yet
-        midicsv.append([note[5]+2,note[8],",note_off_c,",note[5],note[6],0])
+        midicsv.append([note.channel+2,note.offtime,",note_off_c,",note.channel,note.notenum,0])
     
     # now sort again by time
     midicsv.sort(key=itemgetter(1))
@@ -1022,7 +1086,7 @@ if args.wav:
         # make space for required duration plus 2s
         append_silence(audio=waudio,sample_rate=sample_freq,duration_milliseconds=w.overall_duration+2000)
         for note in w.notes:
-            inject_sinewave(audio=waudio,sample_rate=sample_freq,freq=note[0],start_time=note[2],duration_milliseconds=note[1],volume=0.25)
+            inject_sinewave(audio=waudio,sample_rate=sample_freq,freq=note.freq,start_time=note.start,duration_milliseconds=note.duration,volume=0.25)
         save_wav(w.fname+".wav",audio=waudio,sample_rate=sample_freq)
 
 

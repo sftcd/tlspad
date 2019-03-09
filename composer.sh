@@ -322,6 +322,8 @@ then
             fi
             if [ -f $DNSname.srvadd ]
             then
+                # so we can avoid yet another Tls2Music parameter:-)
+                cp $DNSname.srvadd primaries.ips
                 # generate the music you'd see if you just monitored the server side
                 VANTAGE=" -V $DNSname.srvadd"
                 thisLABEL=" -l $DNSname.$browser-server-vantage"
