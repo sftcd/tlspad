@@ -184,8 +184,6 @@ then
     $SRCDIR/whowhere.sh "$0 $options $*" >>README.md
     # whack in the URLs as well in case they were in a file
     echo "URLS: $url_list" >>README.md
-    echo "===================================================" >> README.md
-    echo "" >>README.md
 
     if [[ "$GENIGNORE" == "yes" ]]
     then
@@ -293,6 +291,9 @@ then
                 then
                     echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN"
                 fi
+                # Whack the used-args to README too...
+                echo "Tls2Music Parameters:" >>README.md
+                echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN" >>README.md
                 $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
             fi
 
@@ -310,14 +311,14 @@ then
             then
                 for add in $ipv4
                 do
-                    echo $add"/32" >>$DNSname.srvadd
+                    echo $add >>$DNSname.srvadd
                 done
             fi
             if [[ "$ipv6" != "" ]]
             then
                 for add in $ipv6
                 do
-                    echo $add"/128" >>$DNSname.srvadd
+                    echo $add >>$DNSname.srvadd
                 done
             fi
             if [ -f $DNSname.srvadd ]
@@ -335,6 +336,8 @@ then
             fi
         done # browser_list
     done # url_list
+    echo "===================================================" >> README.md
+    echo "" >>README.md
 fi
 
 # Possibly ignore stubby
@@ -395,6 +398,7 @@ then
     mv $TDIR/*.ogg $ODIR
     mv $TDIR/*.png $ODIR
     mv $TDIR/*.srvadd $ODIR
+    mv $TDIR/*.ips $ODIR
     # don't kill old versions of this, just add to 'em
     cat $TDIR/README.md >>$ODIR/README.md
     rm -rf $TDIR
@@ -404,6 +408,7 @@ else
     cp $TDIR/*.ogg $ODIR
     cp $TDIR/*.png $ODIR
     cp $TDIR/*.srvadd $ODIR
+    cp $TDIR/*.ips $ODIR
     # don't kill old versions of this, just add to 'em
     cat $TDIR/README.md >>$ODIR/README.md
 fi

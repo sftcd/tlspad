@@ -54,7 +54,9 @@ class TLSSession():
             's_psizes',
             's_delays',
             'd_psizes',
-            'd_delays'
+            'd_delays',
+            'channel',
+            'sortstr'
             ]
 
     def __init__(self,fname='',ver='',stime=0,tstamp='0',src='',sport='',dst='',dport=''):
@@ -79,6 +81,8 @@ class TLSSession():
         self.s_delays=[] # list of relative time offsets from session start
         self.d_psizes=[] # list of APDU sizes from dst, 0 is 1st, 1 2nd seen etc.
         self.d_delays=[] # list of relative time offsets from session start
+        self.channel=0 # used in Tls2Music only (so far)
+        self.sortstr=src+":"+sport+"->"+dst+":"+dport
 
     def __str__(self):
         return "ID: " + str(self.sess_id) + " V:" + self.version + "\n" + \
@@ -91,7 +95,8 @@ class TLSSession():
                 "\t" + "source packet sizes: " + str(self.s_psizes) + "\n"+ \
                 "\t" + "source packet times: " + str(["%.3f" % v for v in self.s_delays]) + "\n" + \
                 "\t" + "dest packet sizes: " + str(self.d_psizes) + "\n" + \
-                "\t" + "dest packet times: " + str(["%.3f" % v for v in self.d_delays]) + "\n" 
+                "\t" + "dest packet times: " + str(["%.3f" % v for v in self.d_delays]) + "\n"  + \
+                "\t" + "channel " + str(self.channel)
 
     def add_apdu(self,size,pkttime,pstamp,src):
 
@@ -129,6 +134,10 @@ class TLSSession():
 
     def note_end(self,pkttime):
         self.end_time=pkttime
+
+# used for sorting sessions
+def get_sortstr(s):
+    return s.sortstr
 
 def sess_find(fname,sessions,ver,ptime,ptstamp,src,sport,dst,dport):
     #print ("Checking for " + src + ":" + sport + " to/from " + dst + ":" + dport + "|")

@@ -154,10 +154,6 @@ terms of things to play about with (other than just tidying code) are:
       due to stubby (which is expected even if not great) or 
       ghostery.
 
-- try allocate sessions -> instruments/channels more cleverly;
-  maybe primary session (checking CNAMEs?); not sure of ordering to
-  use and checking which are primary will be tricky
-
 - systematically try other instruments, and ensembles of those,
   to find more memorable sounds (maybe include channel 10/drums)
 
@@ -181,6 +177,9 @@ via ``pip install music``) - that'd likely replace the current
 ``.wav`` file generation code that produces modem noise.
 
 Things along these lines that are a work-in-progress:
+
+- allocated sessions -> instruments/channels more cleverly;
+  primary sessions (checking CNAMEs?) get lower channels; 
 
 - added a ``time_dilation`` feature but it didn't seem to make
     much real diff 

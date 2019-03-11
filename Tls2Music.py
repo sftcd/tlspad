@@ -144,11 +144,10 @@ class tls_session_set():
             'earliest', # overall earliest date
             'latest', # overall latest date
             'overall_duration', # obvious:-)
-            'channel', # index of this in an array of similar things (could be taken out!)
             'notes', # the set of notes in a musical rendering
             'sessions'
             ]
-    def __init__(self,fname="",selector=None,nsessions=0,earliest=sys.maxsize,latest=0,overall_duration=0,channel=0):
+    def __init__(self,fname="",selector=None,nsessions=0,earliest=sys.maxsize,latest=0,overall_duration=0):
         self.fname=fname
         self.selector=selector
         self.nsessions=nsessions
@@ -158,11 +157,10 @@ class tls_session_set():
         else:
             self.latest=latest
         self.overall_duration=overall_duration
-        self.channel=channel
         self.notes=[]
         self.sessions=[]
     def __str__(self):
-        return("Details for " + self.fname + ": session: " + str(self.channel) + " of " + str(self.nsessions) + "\n" + \
+        return("Details for " + self.fname + ": sessions: " + str(self.nsessions) + "\n" + \
                 "\t" + "Earliest: " + str("%.02F"%self.earliest) + " Latest: " + str("%.02F"%self.latest) + " Dur: " + str("%.02f"%(self.overall_duration/1000)) + "\n" + \
                 "\t" + "Notes:\n" + '\n'.join('\t'+str(note) for note in self.notes) + \
                 "\n" + "Session IDs: \n" + '\n'.join('\t'+str(s.sess_id) for s in self.sessions) )
@@ -768,9 +766,10 @@ if len(flist)==0:
 
 # our array of TLS sessions
 if args.verbose:
-    print("Running verbosely...")
+    print("Running  " + sys.argv[0] +  " verbosely...")
     print("Reading pcaps...")
     print(flist)
+
 sessions=[]
 analyse_pcaps(flist,sessions,args.verbose)
 if args.verbose:
@@ -828,7 +827,12 @@ if args.verbose:
         print("No addresses to prefer from " + primaryfile + " (maybe file isn't there?)")
     else:
         print("Addresses to treat as primary: " + str(primary_arr))
+if len(primary_arr)>=15:
+    print("Can't handle so many primaries (only 15 channels) - exiting")
+    sys.exit(1)
 
+# group our sessions according to selector
+# and keep tabs on overall duration of sessions in groups
 for s in sessions:
     if s.dst in block_arr or s.src in block_arr:
         if args.verbose:
@@ -902,49 +906,68 @@ if len(the_arr)==0:
     print(sys.argv[0] + ": No sessions selected - exiting")
     sys.exit(0)
 
+# allocate sessions to channels/instruments
+# if src/dst is in primary list, then that gets lowest numbered channels
+# otherwise we alphanumerically sort sessions by src:port:dst:port
+# and allocate channels accordingly
+# midi channel 9 is drums, so we've only 15, not 16 to play with
+# for now
+
+wcnt=0
+for w in the_arr:
+    wcnt+=1
+    # next primary and secondary channels to allocate
+    pchan=0
+    schan=14
+    if args.verbose:
+        print("Allocating channels to set " + str(wcnt) + " which has " + str(w.nsessions) + " sessions")
+    # first sort the sessions in each W
+    w.sessions=sorted(w.sessions,key=get_sortstr)
+    for s in w.sessions:
+        if (len(s.s_psizes)>0 or len(s.d_psizes)>0) and (s.src in primary_arr or s.dst in primary_arr):
+            if args.verbose:
+                print("\tAllocated " + str(s.sess_id) + " to primary channel " + str(pchan))
+            s.channel=pchan
+            pchan+=1
+        else:
+            if args.verbose:
+                print("\tAllocated " + str(s.sess_id) + " to channel " + str(schan))
+            s.channel=schan
+            schan-=1
+        if (schan-1) <= pchan:
+            # start over
+            pchan=0
+            schan=14
+
+# bump up by one for anyone >=9 so we use 0..8 and 10..15
+for w in the_arr:
+    for s in w.sessions:
+        if s.channel >=9:
+            s.channel += 1
+
+
 # loop again through sessions to pick up PDU details
-for s in sessions:
-    if s.dst in block_arr or s.src in block_arr:
-        if args.verbose:
-            print("Still ignoring session: " + s.src + "->" + s.dst)
-        continue
-    w=find_set(s,the_arr)
-    if w is None:
-        continue
-    for i in range(0,len(s.s_psizes)):
-        freq,dur=size2freqdur(s.s_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,True,lowest_note,highest_note)
-        n=noteinfo(freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,w.channel)
-        w.notes.append(n)
-    for i in range(0,len(s.d_psizes)):
-        freq,dur=size2freqdur(s.d_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,False,lowest_note,highest_note)
-        n=noteinfo(freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,w.channel)
-        w.notes.append(n)
-    if len(s.s_psizes)>0 or len(s.d_psizes)>0:
-        # midi limit on channels/sessions seems to be max 16 is reliable
-        # so we'll re-use and hope for the best if we have >16 TLS sessions 
-        # per src IP in a pcap
-        if args.verbose and w.channel==15:
-            print("Warning: >16 TLS sessions in one midi file for " + s.src)
-        w.channel = (w.channel + 1) % 16
-        # channel will map to midi channel, so we'll skip #10 which is drums
-        # because they don't have so many notes as pianos and we lose information
-        if w.channel == 9:
-            w.channel=10
+# and generate initial note info
+for w in the_arr:
+    for s in w.sessions:
+        for i in range(0,len(s.s_psizes)):
+            freq,dur=size2freqdur(s.s_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,True,lowest_note,highest_note)
+            n=noteinfo(freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,s.channel)
+            w.notes.append(n)
+        for i in range(0,len(s.d_psizes)):
+            freq,dur=size2freqdur(s.d_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,False,lowest_note,highest_note)
+            n=noteinfo(freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,s.channel)
+            w.notes.append(n)
 
 # sort notes timewise
 for w in the_arr:
-    #w.notes=sorted(w.notes, key=itemgetter(2))
     w.notes=sorted(w.notes, key=get_start)
     if args.verbose:
         print(w)
         print("\n")
 
 # pick notes from frequencies and handle time munging
-# TODO: separate those later
 for w in the_arr:
-    if args.verbose:
-        print("Picking notes")
-    # table version
     table={}
     for note in w.notes:
         # freq2note version
@@ -1044,6 +1067,7 @@ for w in the_arr:
 
     with open(w.fname+".midi.csv","w") as f:
         # precursor
+        current_track=midicsv[0][0]
         f.write('0, 0, Header, 1, '+str(w.nsessions+1)+', 480\n\
 1, 0, Start_track\n\
 1, 0, Title_t, "Tls2Music ' + w.fname + '"\n\
@@ -1051,11 +1075,10 @@ for w in the_arr:
 1, 0, Copyright_t, "This file is in the public domain"\n\
 1, 0, Time_signature, 4, 2, 24, 8\n\
 1, 0, Tempo, 500000\n\
-1, 0, End_track\n\
-2, 0, Start_track\n\
-2, 0, Instrument_name_t, "channel 0 misc"\n\
-2, 0, Program_c, 0, ' + instrument(instrumentnum,0) + '\n')
-        current_track=midicsv[0][0]
+1, 0, End_track\n' +
+str(current_track) + ', 0, Start_track\n' +
+str(current_track) + ', 0, Instrument_name_t, "channel 0 misc"\n' +
+str(current_track) + ', 0, Program_c, 0, ' + instrument(instrumentnum,current_track-2) + '\n')
         last_track_end=0
         for line in midicsv:
             if line[0]!=current_track:
