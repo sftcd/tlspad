@@ -39,6 +39,9 @@ later.
     - [data2server.sh](data2server.sh) rsync's stuff up to a server
     - [whowhere.sh](whowhere.sh) generates a bit of meta-data for a run to help 
     me understand what's what later
+    - [allinsts.sh](allinsts.sh) is a simple bash script to make a csvmidi file 
+    that tries to play everyhing (I use it when trying to figure the limits of
+    csvmidi etc.)
 
 - [TlsPadFncs.py](TlsPadFncs.py) has classes and functions that are used by...
 
@@ -177,6 +180,10 @@ via ``pip install music``) - that'd likely replace the current
 ``.wav`` file generation code that produces modem noise.
 
 Things along these lines that are a work-in-progress:
+
+- trying out hashing packet sizes to buckets for instrument
+  picking to be more robust against sequencing of IP
+  addressess 
 
 - allocated sessions -> instruments/channels more cleverly;
   primary sessions (checking CNAMEs?) get lower channels; 

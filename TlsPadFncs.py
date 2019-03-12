@@ -56,6 +56,7 @@ class TLSSession():
             'd_psizes',
             'd_delays',
             'channel',
+            'instrument',
             'sortstr'
             ]
 
@@ -82,6 +83,7 @@ class TLSSession():
         self.d_psizes=[] # list of APDU sizes from dst, 0 is 1st, 1 2nd seen etc.
         self.d_delays=[] # list of relative time offsets from session start
         self.channel=0 # used in Tls2Music only (so far)
+        self.instrument=0 # used in Tls2Music only (so far)
         self.sortstr=src+":"+sport+"->"+dst+":"+dport
 
     def __str__(self):
@@ -96,7 +98,7 @@ class TLSSession():
                 "\t" + "source packet times: " + str(["%.3f" % v for v in self.s_delays]) + "\n" + \
                 "\t" + "dest packet sizes: " + str(self.d_psizes) + "\n" + \
                 "\t" + "dest packet times: " + str(["%.3f" % v for v in self.d_delays]) + "\n"  + \
-                "\t" + "channel " + str(self.channel)
+                "\t" + "channel " + str(self.channel) + " instrument: " + str(self.instrument)
 
     def add_apdu(self,size,pkttime,pstamp,src):
 

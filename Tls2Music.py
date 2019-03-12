@@ -103,13 +103,15 @@ class noteinfo():
             "packetsize",
             "c2s",
             # midi fields
-            "notenum",
+            "instrument",
+            "track",
+            "channel",
             "ontime",
             "offtime",
+            "notenum",
             "vel",
-            "channel",
             ]
-    def __init__(self,f=0,d=0,s=0,p=0,c2s=False,ch=0):
+    def __init__(self,f=0,d=0,s=0,p=0,c2s=False,ch=0,tr=0,inst=0):
         self.freq=f
         self.duration=d
         self.start=s
@@ -120,6 +122,8 @@ class noteinfo():
         self.offtime=0
         self.vel=0
         self.channel=ch
+        self.track=tr
+        self.instrument=inst
     def __str__(self):
         s_str="Note: " + str(self.freq) + " Start: " + str(self.start) + " Dur: " + str(self.duration) + "\n\t"  
         if self.c2s:
@@ -127,7 +131,8 @@ class noteinfo():
         else:
             s_str += " Dir: S->C" 
         s_str+=" Size: " + str(self.packetsize) + "\n\t"
-        s_str+=" Notenum: " + str(self.notenum) + " On: " + str(self.ontime) + " Off: " + str(self.offtime) + " Ch: " + str(self.channel) 
+        s_str+=" Notenum: " + str(self.notenum) + " On: " + str(self.ontime) + " Off: " + str(self.offtime) + " Ch: " + str(self.channel) \
+                + " Track: " + str(self.track) + " Instrument: " + str(self.instrument)
         return(s_str)
 
 def get_start(item):
@@ -416,11 +421,14 @@ def size2num(size,righthand,table):
             table[size]=low_num
     return table[size]
 
-def instrument(inum,channel):
+def instrument(inum,hashedinst):
     if inum >=0 and inum <=127:
+        # was specified on commandline so use that
         return str(inum)
     if inum==-1:
-        return str(instarr[channel])
+        # old way...
+        #return str(instarr[hashedinst])
+        return str(hashedinst)
     print("Error: bad instrument number: " + str(inum) + " on channel: " + str(channel))
     return "ERROR"
 
@@ -938,6 +946,23 @@ for w in the_arr:
             # start over
             pchan=0
             schan=14
+        # see if a hashing -> bucket scheme is useful for instruments...
+        # first try: multiply lengths and numbers of packets
+        # and then try mod 127 (nearest prime to 128)
+        prod=1
+        if len(s.s_psizes) > 0:
+            prod=prod*len(s.s_psizes)
+            for plen in s.s_psizes:
+                if plen>0:
+                    prod=prod*plen
+        if len(s.d_psizes) > 0:
+            prod=prod*len(s.d_psizes)
+            for plen in s.d_psizes:
+                if plen>0:
+                    prod=prod*plen
+        s.instrument=(prod%127)
+        if (args.verbose):
+            print("Hash prod for " + str(s.sess_id) + " is " + str(prod) + " Instrument: " + str(s.instrument))
 
 # bump up by one for anyone >=9 so we use 0..8 and 10..15
 for w in the_arr:
@@ -949,15 +974,17 @@ for w in the_arr:
 # loop again through sessions to pick up PDU details
 # and generate initial note info
 for w in the_arr:
+    track=0
     for s in w.sessions:
         for i in range(0,len(s.s_psizes)):
             freq,dur=size2freqdur(s.s_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,True,lowest_note,highest_note)
-            n=noteinfo(freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,s.channel)
+            n=noteinfo(freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,s.channel,track+2,s.instrument)
             w.notes.append(n)
         for i in range(0,len(s.d_psizes)):
             freq,dur=size2freqdur(s.d_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,False,lowest_note,highest_note)
-            n=noteinfo(freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,s.channel)
+            n=noteinfo(freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,s.channel,track+2,s.instrument)
             w.notes.append(n)
+        track+=1
 
 # sort notes timewise
 for w in the_arr:
@@ -1021,7 +1048,6 @@ for w in the_arr:
         # handle velocity (loudness) 
         vel=velocity(notenum,note.channel,ontime,offtime-ontime,w.overall_duration)
         # add what we've calculated to note, in cols 6-9
-        #note.extend([notenum,ontime,offtime,vel])
         note.notenum=notenum
         note.ontime=ontime
         note.offtime=offtime
@@ -1048,9 +1074,9 @@ for w in the_arr:
     for note in w.notes:
         # odd structure here is so we can sort on time in a sec...
         # let's play with different velocities see what that does...
-        midicsv.append([note.channel+2,note.ontime,",note_on_c,",note.channel,note.notenum,note.vel])
+        midicsv.append([note.track,note.ontime,",note_on_c,",note.channel,note.notenum,note.vel,note.instrument])
         # might make the above a parameter, but not yet
-        midicsv.append([note.channel+2,note.offtime,",note_off_c,",note.channel,note.notenum,0])
+        midicsv.append([note.track,note.offtime,",note_off_c,",note.channel,note.notenum,0,note.instrument])
     
     # now sort again by time
     midicsv.sort(key=itemgetter(1))
@@ -1077,16 +1103,16 @@ for w in the_arr:
 1, 0, Tempo, 500000\n\
 1, 0, End_track\n' +
 str(current_track) + ', 0, Start_track\n' +
-str(current_track) + ', 0, Instrument_name_t, "channel 0 misc"\n' +
-str(current_track) + ', 0, Program_c, 0, ' + instrument(instrumentnum,current_track-2) + '\n')
+str(current_track) + ', 0, Instrument_name_t, "channel ' + str(midicsv[0][3]) + ' "\n' +
+str(current_track) + ', 0, Program_c, '+ str(midicsv[0][3]) + ', ' + instrument(instrumentnum,midicsv[0][6]) + '\n')
         last_track_end=0
         for line in midicsv:
             if line[0]!=current_track:
                 f.write(str(current_track)+', '+str(last_track_end)+', End_track\n')
                 current_track=line[0]
                 f.write(str(current_track)+', 0, Start_track\n')
-                f.write(str(current_track)+', 0, Instrument_name_t, "channel '+str(current_track-2)+' misc"\n')
-                f.write(str(current_track)+', 0, Program_c,'+str(current_track-2)+','+ instrument(instrumentnum,current_track-2) + '\n')
+                f.write(str(current_track)+', 0, Instrument_name_t, "channel '+str(line[3])+'"\n')
+                f.write(str(current_track)+', 0, Program_c,'+str(line[3])+','+ instrument(instrumentnum,line[6]) + '\n')
             last_track_end=line[1]
             f.write(str(line[0])+","+str(line[1])+line[2]+str(line[3])+","+str(line[4])+","+str(line[5])+"\n")
         f.write(str(current_track)+', '+str(last_track_end)+', End_track\n')
