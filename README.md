@@ -39,9 +39,9 @@ later.
     - [data2server.sh](data2server.sh) rsync's stuff up to a server
     - [whowhere.sh](whowhere.sh) generates a bit of meta-data for a run to help 
     me understand what's what later
-    - [allinsts.sh](allinsts.sh) is a simple bash script to make a csvmidi file 
-    that tries to play everyhing (I use it when trying to figure the limits of
-    csvmidi etc.)
+    - [loadsofinsts.sh](loadsofinsts.sh) is a simple bash script to make a csvmidi file 
+    that tries to play loads of instruments at once (used when trying to figure 
+    the limits of csvmidi etc.)
 
 - [TlsPadFncs.py](TlsPadFncs.py) has classes and functions that are used by...
 
@@ -61,6 +61,9 @@ later.
             - IPv6 prefixes can be like: ``2001:db8::/32``
         - ``-V`` is for vantage point here even though that's not quite right
         - default is to group by src IPs
+    - [tryeachinst.sh](tryeachinst.sh) is a script to use Tls2Music.py to render one
+        pcap using all possible instruments so I can hear which sounds like
+        what
 
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music
@@ -122,6 +125,7 @@ the addresses stubby uses for DoT.
 a fake localhost URL just to capture the IP addresses to which the browser
 communicates that aren't related to the web site in which we're interested.
 The non-local IPs from that list are added to the ``ignore.addrs`` file.
+
 
 The ``ignore.addrs`` file causes ``Tls2Music.py`` to skip those addresses when making music.
 Including all the DNS IPs sometimes makes for more boring sound:-)
