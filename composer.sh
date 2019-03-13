@@ -37,7 +37,7 @@ function usage()
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
     echo "-u - URL to access, grab, analyse and turn into midi file"
-    echo "     This uses: '-l <DNSname> -s 1000 -i -1 -V all'"
+    echo "     This uses: '-l <DNSname> -s 1000 -V all -N freq'"
     echo "-b - browser to use: [all|firefox|chrome|opera] (default is firefox)"
     echo "-f - name of capture file or directory for capture files (default is '.')"
     echo "-V - vantage point/selectors, can be [all|src|dst|file-name]"
@@ -70,7 +70,7 @@ BROWSER="firefox"
 # default to log time off and 1s suppression as it seems to work nicely
 LOGTIME=""
 SUPPRESS=" -s 1000 "
-INSTRUMENT=" -i -1"
+INSTRUMENT=""
 SCALED=""
 # empty strings will turn 'em off
 # SUPPRESS=""

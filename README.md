@@ -93,7 +93,7 @@ later.
             Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:
             -h - produce this
             -u - URL to access, grab, analyse and turn into midi file
-                This uses: '-l <DNSname> -s 1000 -i -1 -V all'
+                This uses: '-l <DNSname> -s 1000 -V all -N freq'
             -b - browser to use: [all|firefox|chrome|opera] (default is firefox)
             -f - name of capture file or directory for capture files (default is '.')
             -V - vantage point/selectors, can be [all|src|dst|file-name]
