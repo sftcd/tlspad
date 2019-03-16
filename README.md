@@ -118,6 +118,9 @@ later.
     - This script may need ``sudo`` depending on how you'v setup packet capture.
     - Added production of output .ogg audio file and spectrogram .png file
 
+- [Tls2Numbers.py](./Tls2Numbers.py) produces some basic stats for a sselection
+    of pcap files
+
 - [ignore-stubby.sh](ignore-stubby.sh) generates (or updates) the ``ignore.addrs``
 file, with the ``addresss_data`` found in ``/etc/stubby/stubby.cfg. Those are
 the addresses stubby uses for DoT.
