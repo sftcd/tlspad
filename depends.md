@@ -117,6 +117,10 @@ on that path that I should fix, but I've (probably) not yet;-)
     - There may be more to getting ``timidity`` to work, but it just worked for me on
     my 2nd box with the above. 
 
+    -``sox`` is used to generate a spectrogram image of the ogg file, to get sox:
+
+            $ sudo apt install sox
+
     - To generate plots of the sounds, we use ``sox`` (and maybe ``octave`` or ``gnuplot``), so:
 
             $ sudo apt install sox octave gunplot
@@ -126,6 +130,13 @@ on that path that I should fix, but I've (probably) not yet;-)
 			$ $SRCDIR/composer.sh -u https://ietf.org/
 			$ timidity 1550078276-ietf.org-all-be28332f.midi
 			... moar noises off stage...
+
+
+1. misc
+
+    - I use ``audacity`` to eyeball the notes in a midi file, get that via:
+
+            $ sudo apt install audacity
 
 
 ## OpenWRT
