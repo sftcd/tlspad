@@ -37,7 +37,7 @@ function usage()
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
     echo "-u - URL to access, grab, analyse and turn into midi file"
-    echo "     This uses: '-l <DNSname> -s 1000 -V all -N freq'"
+    echo "     This uses: '-l <DNSname> -s 1000 -V all -N freq -M 250'"
     echo "-b - browser to use: [all|firefox|chrome|opera] (default is firefox)"
     echo "-f - name of capture file or directory for capture files (default is '.')"
     echo "-V - vantage point/selectors, can be [all|src|dst|file-name]"
@@ -50,7 +50,7 @@ function usage()
     echo "-L - use logarithmic time"
     echo "-S - use scaled time"
     echo "-v - be verbose"
-    echo "-I - generate ignore list (DNS stubby DoT sessions)"
+    echo "-I - generate ignore list (DNS stubby DoT sessions and selenium's defaults)"
     echo "-w - produce .wav files as well as .midi (warning: slow, maybe buggy)"
 	exit 99
 }

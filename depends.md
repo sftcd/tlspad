@@ -138,6 +138,14 @@ on that path that I should fix, but I've (probably) not yet;-)
 
             $ sudo apt install audacity
 
+## Scatter plots
+
+I've added [Tls2Numbers.py](./Tls2Numbers.py) which generates scatter plots.
+For that to work I think you need something like...
+
+            $ sudo -H pip3 install matplotlib
+            $ sudo -H pip3 install numpy
+            $ sudo apt-get install python3-tk 
 
 ## OpenWRT
 

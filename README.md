@@ -93,7 +93,7 @@ later.
             Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:
             -h - produce this
             -u - URL to access, grab, analyse and turn into midi file
-                This uses: '-l <DNSname> -s 1000 -V all -N freq'
+                This uses: '-l <DNSname> -s 1000 -V all -N freq -M 250'
             -b - browser to use: [all|firefox|chrome|opera] (default is firefox)
             -f - name of capture file or directory for capture files (default is '.')
             -V - vantage point/selectors, can be [all|src|dst|file-name]
@@ -118,8 +118,8 @@ later.
     - This script may need ``sudo`` depending on how you'v setup packet capture.
     - Added production of output .ogg audio file and spectrogram .png file
 
-- [Tls2Numbers.py](./Tls2Numbers.py) produces some basic stats for a sselection
-    of pcap files
+- [Tls2Numbers.py](./Tls2Numbers.py) produces some basic stats for a selection
+    of pcap files, and scatter plots
 
 - [ignore-stubby.sh](ignore-stubby.sh) generates (or updates) the ``ignore.addrs``
 file, with the ``addresss_data`` found in ``/etc/stubby/stubby.cfg. Those are

@@ -289,6 +289,8 @@ def size2freqdur(size,minsize,maxsize,nsizes,c2s_direction,lowfreq,highfreq):
 
     # default is min 100ms and max 1s and is distributed evenly according 
     # to min and max pdu sizes
+
+    #linear
     if maxsize-minsize == 0:
         # likely not what's wanted but let's see...
         normalised=0.5
@@ -296,8 +298,18 @@ def size2freqdur(size,minsize,maxsize,nsizes,c2s_direction,lowfreq,highfreq):
         normalised=(size-minsize)/(maxsize-minsize)
     duration=int(min_note_length+normalised*(max_note_length-min_note_length))
 
-    bpms=180
-    duration=time_dilation*int(8*size/bpms)
+    # log reduction - doens't seem to make much difference
+    #lmaxsize=math.log2(maxsize)
+    #lminsize=math.log2(minsize)
+    #if lmaxsize-lminsize == 0:
+        #lognorm=0.5
+    #else:
+        #lognorm=(math.log2(size)-lminsize)/(lmaxsize-lminsize)
+    #duration=int(min_note_length+lognorm*(max_note_length-min_note_length))
+
+    #an estimated bit per milli-second method
+    #bpms=180
+    #duration=time_dilation*int(8*size/bpms)
 
     frange=highfreq-lowfreq
     bottomstep=lowfreq

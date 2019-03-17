@@ -29,6 +29,15 @@ import os,sys,argparse,re,random,time,ipaddress
 import pyshark
 from TlsPadFncs import *
 
+# stuff for graphics
+import numpy as np
+import matplotlib
+# uncomment below if you want interactive plots
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+from scipy.ndimage.filters import gaussian_filter
+
 def selector_match(s,sels,sl=""):
     '''
     check if TLS session matches selector
@@ -86,10 +95,23 @@ def selector_match(s,sels,sl=""):
         print("Checked " + str(s.sess_id) +  " vs. " + str(sels) + " result: " + str(matches) + " " + thesel + " branch:" + mbranch)
     return matches,thesel
 
+
+# heatmap stuff - not currently used, go check out URL below if thinking of putting it back in
+# taken from https://stackoverflow.com/questions/2369492/generate-a-heatmap-in-matplotlib-using-a-scatter-data-set
+def myplot(x, y, s, bins=1000):
+    heatmap, xedges, yedges = np.histogram2d(x, y, bins=bins)
+    heatmap = gaussian_filter(heatmap, sigma=s)
+    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+    return heatmap.T, extent
+
 # main line code...
 
 # file or direcory name
 fodname="."
+
+# max delay for which we bother with a graph (in ms)
+# could make this a command line arg I guess
+maxdelay=18000
 
 # command line arg handling 
 argparser=argparse.ArgumentParser(description='Generate some stats for one or more pcaps')
@@ -190,6 +212,13 @@ if args.verbose:
     else:
         print("Addresses to ignore: " + str(block_arr))
 
+#points=[]
+xpoints=[]
+ypoints=[]
+cxpoints=[]
+cypoints=[]
+sxpoints=[]
+sypoints=[]
 # group our sessions according to selector
 # and keep tabs on overall duration of sessions in groups
 for s in sessions:
@@ -219,5 +248,29 @@ for s in sessions:
     min_pdu=0
     if s.min_pdu!=sys.maxsize:
         min_pdu=s.min_pdu
-    print([s.sess_id,duration,s.num_sizes,c2sc,s2cc,min_pdu,s.max_pdu])
+    if args.verbose:
+        print([s.sess_id,duration,s.num_sizes,c2sc,s2cc,min_pdu,s.max_pdu])
+    if c2sc != 0:
+        cxpoints+=s.s_delays
+        cypoints+=s.s_psizes
+    if s2cc != 0:
+        sxpoints+=s.d_delays
+        sypoints+=s.d_psizes
 
+print("Processsed " + str(len(sessions)) + " TLS session")
+
+plt.plot(cxpoints, cypoints, 'g.', label="c2s")
+plt.plot(sxpoints, sypoints, 'b.', label="s2c")
+plt.xlabel("Time (ms)")
+plt.ylabel("Packet size (octets)")
+plt.title("Tls2Numbers.py -f " + fodname)
+plt.xlim([0,maxdelay])
+plt.ylim([0,maxdelay])
+
+imgname=fodname+".tls2n.png"
+if fodname=='.':
+    imgname="cwd.tls2n.png"
+plt.savefig(imgname,dpi=600)
+
+# interactive plot - you need to have uncommented the 'agg' line at the start
+# plt.show()
