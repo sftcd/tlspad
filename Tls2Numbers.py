@@ -104,6 +104,30 @@ def myplot(x, y, s, bins=1000):
     extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
     return heatmap.T, extent
 
+
+# check if file or directory
+def check_fod(onename,flist,recurse):
+    #print("check_fod - entering to check " + onename)
+    #print(flist)
+    # if onename is a directory get all '*.pcap[number]' file names therin
+    if os.path.isdir(onename):
+        pass
+        tfiles = [f for f in os.listdir(onename) if re.match(r'.*\.pca(p|p[0-9])$', f)]
+        if len(tfiles)!=0:
+            for t in tfiles:
+                flist.add(onename+"/"+t)
+        if recurse:
+            tdirs=[d for d in os.listdir(onename) if os.path.isdir(onename+"/"+d)]
+            for thedir in tdirs:
+                # recurse!
+                #print("check_fod - recursing into " + thedir)
+                #print(flist)
+                check_fod(onename+"/"+thedir,flist,recurse)
+    else:
+        # if onename is not a directory add to list if file exists
+        if os.path.exists(onename):
+            flist.add(onename)
+
 # main line code...
 
 # file or direcory name
@@ -132,10 +156,6 @@ args=argparser.parse_args()
 if args.fodname is not None:
     fodname=args.fodname
 
-if args.recurse:
-    print("Didn't code that up yet, sorry:-)")
-    sys.exit(1)
-
 # default is to group by SRC IP
 selectors='all'
 if args.selectors is not None:
@@ -159,26 +179,19 @@ if args.selectors is not None:
     if args.verbose:
         print("Selectors set: " + str(selectors))
 
-# TODO: Make this recurse down directory structure
 # make list of file names to process
 flist=set()
 # input string could be space sep list of file or directory names
 for onename in fodname.split():
-    # if onename is a directory get all '*.pcap[number]' file names therin
-    if os.path.isdir(onename):
-        pass
-        tfiles = [f for f in os.listdir(onename) if re.match(r'.*\.pcap[0-9]*', f)]
-        if len(tfiles)!=0:
-            for t in tfiles:
-                flist.add(onename+"/"+t)
-    else:
-        # if onename is not a directory add to list if file exists
-        if os.path.exists(onename):
-            flist.add(onename)
+    check_fod(onename,flist,args.recurse)
 
 if len(flist)==0:
     print(sys.argv[0]+ ": No input files found - exiting")
     sys.exit(1)
+
+# we'd like to go through things in the same order, if the files
+# on disk haven't changed
+flist=sorted(flist)
 
 # our array of TLS sessions
 if args.verbose:
