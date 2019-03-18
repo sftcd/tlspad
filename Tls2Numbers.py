@@ -145,6 +145,9 @@ argparser.add_argument('-f','--file',
 argparser.add_argument('-i','--ipfile',
                     dest='selectors',
                     help='select output sets based on IPs in file')
+argparser.add_argument('-l','--loglog',
+                    help='ploy scatter graph with log,log axes',
+                    action='store_true')
 argparser.add_argument('-r','--recurse',
                     help='recurse down directories finding pcaps',
                     action='store_true')
@@ -225,13 +228,13 @@ if args.verbose:
     else:
         print("Addresses to ignore: " + str(block_arr))
 
-#points=[]
-xpoints=[]
-ypoints=[]
+# point for scatter plot
 cxpoints=[]
 cypoints=[]
 sxpoints=[]
 sypoints=[]
+# count of sessions processed
+nsessions=0
 # group our sessions according to selector
 # and keep tabs on overall duration of sessions in groups
 for s in sessions:
@@ -245,6 +248,8 @@ for s in sessions:
             if args.verbose:
                 print("Skipping session: " + s.src + "->" + s.dst)
         continue
+    # count 'em
+    nsessions += 1
     # numbers for each session:
     # sess_id
     # for both c2s and s2c direction
@@ -261,8 +266,11 @@ for s in sessions:
     min_pdu=0
     if s.min_pdu!=sys.maxsize:
         min_pdu=s.min_pdu
+    # probably wanna write out a CSV file really, back to this in a bit
     if args.verbose:
         print([s.sess_id,duration,s.num_sizes,c2sc,s2cc,min_pdu,s.max_pdu])
+
+    # for scatter plot
     if c2sc != 0:
         cxpoints+=s.s_delays
         cypoints+=s.s_psizes
@@ -270,19 +278,32 @@ for s in sessions:
         sxpoints+=s.d_delays
         sypoints+=s.d_psizes
 
-print("Processsed " + str(len(sessions)) + " TLS session")
+print("Processsed " + str(nsessions) + " TLS sessions")
 
-plt.plot(cxpoints, cypoints, 'g.', label="c2s")
-plt.plot(sxpoints, sypoints, 'b.', label="s2c")
+plt.plot(cxpoints, cypoints, 'g.', label="c2s",markersize=1)
+plt.plot(sxpoints, sypoints, 'b.', label="s2c",markersize=1)
 plt.xlabel("Time (ms)")
 plt.ylabel("Packet size (octets)")
 plt.title("Tls2Numbers.py -f " + fodname)
-plt.xlim([0,maxdelay])
-plt.ylim([0,maxdelay])
+# default to linear
+imgext="tls2n.png"
+if args.loglog:
+    # log,log
+    #plt.xlim([1,math.log(maxdelay)])
+    #plt.ylim([1,math.log(maxdelay)])
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel("Log Time (ms)")
+    plt.ylabel("Log Packet size (octets)")
+    imgext="tls2n.ll.png"
+else:
+    # linear
+    plt.xlim([0,maxdelay])
+    plt.ylim([0,maxdelay])
 
-imgname=fodname+".tls2n.png"
+imgname=fodname+"."+imgext
 if fodname=='.':
-    imgname="cwd.tls2n.png"
+    imgname="cwd."+imgext
 plt.savefig(imgname,dpi=600)
 
 # interactive plot - you need to have uncommented the 'agg' line at the start
