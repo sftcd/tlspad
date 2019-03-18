@@ -31,6 +31,9 @@ on that path that I should fix, but I've (probably) not yet;-)
             $ sudo apt install tshark
             $ sudo apt install tcpdump
 
+Note: tshark is also needed for analysis scripts below. So even if you're
+not doing captures on a box you may need it anyway.
+
 1. for [TlsPacketSizes.py](TlsPacketSizes.py):
 
     - This and other python things are python3, so you'll need that
@@ -145,7 +148,10 @@ For that to work I think you need something like...
 
             $ sudo -H pip3 install matplotlib
             $ sudo -H pip3 install numpy
+            $ sudo -H pip3 install scipy
             $ sudo apt-get install python3-tk 
+
+The scipy thing may not really be needed but I might want it again later.
 
 ## OpenWRT
 
