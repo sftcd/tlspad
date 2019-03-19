@@ -57,6 +57,7 @@ function usage()
 
 # capture file or directory name. if a directory, we store a standard named
 # file in there
+MAXNOTE=" -M 250"
 OFILE="."
 VERBOSE=""
 WAVOUT=""
@@ -118,7 +119,7 @@ do
         -V|--vantage) JUSTCLEAN="no"; VANTAGE=" -V $2 "; shift;;
         -L|--logtime) JUSTCLEAN="no"; LOGTIME=" -T ";;
         -S|--scaled) JUSTCLEAN="no"; SCALED=" -S ";;
-        -I|--ignore) GENIGNORE="yes ";;
+        -I|--ignore) GENIGNORE="yes";;
         -v|--verbose) VERBOSE=" -v ";;
 		(--) shift; break;;
 		(-*) echo "$0: error - unrecognized option $1" 1>&2; exit 1;;
@@ -289,12 +290,12 @@ then
                 # Do the analysis to generate the csvmidi files (and optonal .wavs)
                 if [[ "$VERBOSE" != "" ]]
                 then
-                    echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN"
+                    echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE"
                 fi
                 # Whack the used-args to README too...
                 echo "Tls2Music Parameters:" >>README.md
-                echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN" >>README.md
-                $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
+                echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE" >>README.md
+                $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE
             fi
 
             # and now force VANTAGE to the DNSname's A and AAAA
@@ -330,9 +331,9 @@ then
                 thisLABEL=" -l $DNSname.$browser-server-vantage"
                 if [[ "$VERBOSE" != "" ]]
                 then
-                    echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN"
+                    echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE"
                 fi
-                $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
+                $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE
             fi
         done # browser_list
     done # url_list
@@ -356,7 +357,7 @@ then
     then
         $SRCDIR/ignore-stubby.sh
     fi
-    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN
+    $SRCDIR/Tls2Music.py -f $OFILE $LABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE
 fi
 
 # Now map the csvs to midis (if there are any - that's the first
@@ -399,6 +400,10 @@ then
     mv $TDIR/*.png $ODIR
     mv $TDIR/*.srvadd $ODIR
     mv $TDIR/*.ips $ODIR
+    if [ -f $TDIR/ignore.addrs ]
+    then
+        mv $TDIR/ignore.addrs $ODIR
+    fi
     # don't kill old versions of this, just add to 'em
     cat $TDIR/README.md >>$ODIR/README.md
     rm -rf $TDIR
@@ -409,6 +414,10 @@ else
     cp $TDIR/*.png $ODIR
     cp $TDIR/*.srvadd $ODIR
     cp $TDIR/*.ips $ODIR
+    if [ -f $TDIR/ignore.addrs ]
+    then
+        cp $TDIR/ignore.addrs $ODIR
+    fi
     # don't kill old versions of this, just add to 'em
     cat $TDIR/README.md >>$ODIR/README.md
 fi

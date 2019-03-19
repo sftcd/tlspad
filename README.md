@@ -135,6 +135,8 @@ Including all the DNS IPs sometimes makes for more boring sound:-)
 
 - [playem.sh](playem.sh) is just a quick script to use timidity to play all the 
   ``.midi`` files in the current directory
+- [countsessionsperpcap.sh](./countsessionsperpcap.sh) counts the number of TLS
+    sessions per PCAP file
 
 ## Re-factoring
 

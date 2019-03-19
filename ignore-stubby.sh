@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# set -x
+#set -x
 
 # 
 # Copyright (C) 2019 Stephen Farrell, stephen.farrell@cs.tcd.ie
