@@ -260,7 +260,16 @@ which seems to be a 2015 vintage python thing that might do the biz. Will check
 more later (as usual:-)
     - And no IPv6 that I can see (again, sigh, again;-()
 
-## Musical stuff
+
+## Current musical stuff
+
+- Will revisit [Puredata](https://puredata.info/)
+    - Also some tutorial and associated tooling at [processing.org](https://processing.org/tutorials/)
+    (in particular, one on [sound](https://processing.org/tutorials/sound/)).
+- Having a look now at [Csound](https://csound.com/get-started.html).
+    - Trying to see what I find after: ``sudo apt install csound csoundqt`` 
+
+## Other musical stuff
 
 Things I looked at, in less or lesser detail...
 
@@ -291,4 +300,5 @@ Things I looked at, in less or lesser detail...
   who seems to work in this space.
   Not quite the same thing, but has similarities and I need to check out the references to
   earlier work, some of those sound more similar.
+
 

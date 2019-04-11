@@ -79,6 +79,10 @@ label=None
 # it all take longer:-)
 time_dilation=1
 
+# number of times to repeat output (in the hope that recognition
+# is easier if we do that)
+overall_repeats=1
+
 
 # MIDI velicity max, min and number of channels we can use
 # and size of channel velocity increment (for overlapping
@@ -699,6 +703,12 @@ argparser.add_argument('-s','--suppress-silence',
 argparser.add_argument('-V','--vantage',
                     dest='vantage',
                     help='select output sets based on vantage point')
+argparser.add_argument('-r','--repeats',
+                    dest='repeats',
+                    help='repeat output N times')
+argparser.add_argument('-z','--sessionsonly',
+                    help='ignore individual packets, just map sessions to notes',
+                    action='store_true')
 args=argparser.parse_args()
 
 if args.fodname is not None:
@@ -733,6 +743,12 @@ if args.notegen is not None:
         print(sys.argv[0] + ": Error: -N [table|freq] needed, value given: |" + str(args.notegen) + "| - exiting")
         print(args.notegen)
         sys.exit(2)
+
+if args.repeats is not None:
+    overall_repeats=args.repeats
+
+if args.sessionsonly and args.verbose:
+    print("Skipping packets, only mapping TLS sessions to notes")
 
 # default is to group by SRC IP
 selectors='src'
@@ -988,14 +1004,35 @@ for w in the_arr:
 for w in the_arr:
     track=0
     for s in w.sessions:
-        for i in range(0,len(s.s_psizes)):
-            freq,dur=size2freqdur(s.s_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,True,lowest_note,highest_note)
-            n=noteinfo(freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,s.channel,track+2,s.instrument)
+        if args.sessionsonly:
+            # just playing here to see what happens...
+            firstpacketsize=-1
+            if (len(s.s_psizes)>0): 
+                firstpacketsize=s.s_psizes[0]
+            if (firstpacketsize==-1 and len(s.d_psizes)>0): 
+                firstpacketsize=s.d_psizes[0]
+            if firstpacketsize==-1:
+                # skip this session - didn't see any ADPUs at all
+                continue
+            dur=-1
+            for i in range(0,len(s.s_psizes)):
+                if s.s_delays[i]>dur:
+                    dur=s.s_delays[i]
+            for i in range(0,len(s.d_psizes)):
+                if s.d_delays[i]>dur:
+                    dur=s.d_delays[i]
+            freq=lowest_note+(track+1)*(highest_note-lowest_note)/(len(w.sessions)*len(the_arr))
+            n=noteinfo(freq,dur,(s.timestamp-w.earliest)*1000,firstpacketsize,True,s.channel,track+2,s.instrument)
             w.notes.append(n)
-        for i in range(0,len(s.d_psizes)):
-            freq,dur=size2freqdur(s.d_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,False,lowest_note,highest_note)
-            n=noteinfo(freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,s.channel,track+2,s.instrument)
-            w.notes.append(n)
+        else:
+            for i in range(0,len(s.s_psizes)):
+                freq,dur=size2freqdur(s.s_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,True,lowest_note,highest_note)
+                n=noteinfo(freq,dur,(s.s_delays[i]+s.timestamp)-w.earliest,s.s_psizes[i],True,s.channel,track+2,s.instrument)
+                w.notes.append(n)
+            for i in range(0,len(s.d_psizes)):
+                freq,dur=size2freqdur(s.d_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,False,lowest_note,highest_note)
+                n=noteinfo(freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,s.channel,track+2,s.instrument)
+                w.notes.append(n)
         track+=1
 
 # sort notes timewise
