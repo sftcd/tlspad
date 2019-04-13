@@ -83,6 +83,9 @@ time_dilation=1
 # is easier if we do that)
 overall_repeats=1
 
+# Time-gap between repeats, in ms
+repeat_gap=100
+
 
 # MIDI velicity max, min and number of channels we can use
 # and size of channel velocity increment (for overlapping
@@ -704,7 +707,7 @@ argparser.add_argument('-V','--vantage',
                     dest='vantage',
                     help='select output sets based on vantage point')
 argparser.add_argument('-r','--repeats',
-                    dest='repeats',
+                    type=int, dest='repeats',
                     help='repeat output N times')
 argparser.add_argument('-z','--sessionsonly',
                     help='ignore individual packets, just map sessions to notes',
@@ -1120,12 +1123,12 @@ for w in the_arr:
     # we'll just keep an array of strings with one line per and won't
     # bother making a python CSV structure
     midicsv=[]
-    for note in w.notes:
-        # odd structure here is so we can sort on time in a sec...
-        # let's play with different velocities see what that does...
-        midicsv.append([note.track,note.ontime,",note_on_c,",note.channel,note.notenum,note.vel,note.instrument])
-        # might make the above a parameter, but not yet
-        midicsv.append([note.track,note.offtime,",note_off_c,",note.channel,note.notenum,0,note.instrument])
+    for repeat in range(0,overall_repeats):
+        for note in w.notes:
+            # odd structure here is so we can sort on time in a sec...
+            repeat_offset=repeat*(w.overall_duration+repeat_gap)
+            midicsv.append([note.track,note.ontime+repeat_offset,",note_on_c,",note.channel,note.notenum,note.vel,note.instrument])
+            midicsv.append([note.track,note.offtime+repeat_offset,",note_off_c,",note.channel,note.notenum,0,note.instrument])
     
     # now sort again by time
     midicsv.sort(key=itemgetter(1))
