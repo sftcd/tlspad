@@ -507,6 +507,8 @@ def scaletime(x):
 # TODO: maybe try find a "nice-sounding" nearby note instead of just going 
 # 2-up or 2-down at a time via the off_increment var below (i.e. maybe
 # try for chords somehow)
+# added code to ignore percussion where overlaps is two hits and thus likely
+# ok
 def avoid2keypresses(midicsv):
     a2kpverbose=False
     #a2kpverbose=args.verbose
@@ -530,7 +532,7 @@ def avoid2keypresses(midicsv):
         keynum=line[4]
         if a2kpverbose:
             print("Oncmd="+str(oncmd)+" keynum=" + str(keynum))
-        if oncmd and keys[keynum]:
+        if line[3]!= 9 and oncmd and keys[keynum]:
             # don't - find a nearby key instead
             if a2kpverbose:
                 print("new key needed for " + str(line))
@@ -711,6 +713,9 @@ argparser.add_argument('-r','--repeats',
                     help='repeat output N times')
 argparser.add_argument('-z','--sessionsonly',
                     help='ignore individual packets, just map sessions to notes',
+                    action='store_true')
+argparser.add_argument('-d','--drums',
+                    help='add drumbeats, once per packet',
                     action='store_true')
 args=argparser.parse_args()
 
@@ -1027,6 +1032,7 @@ for w in the_arr:
             freq=lowest_note+(track+1)*(highest_note-lowest_note)/(len(w.sessions)*len(the_arr))
             n=noteinfo(freq,dur,(s.timestamp-w.earliest)*1000,firstpacketsize,True,s.channel,track+2,s.instrument)
             w.notes.append(n)
+
         else:
             for i in range(0,len(s.s_psizes)):
                 freq,dur=size2freqdur(s.s_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,True,lowest_note,highest_note)
@@ -1035,6 +1041,22 @@ for w in the_arr:
             for i in range(0,len(s.d_psizes)):
                 freq,dur=size2freqdur(s.d_psizes[i],s.min_pdu,s.max_pdu,s.num_sizes,False,lowest_note,highest_note)
                 n=noteinfo(freq,dur,(s.d_delays[i]+s.timestamp)-w.earliest,s.d_psizes[i],False,s.channel,track+2,s.instrument)
+                w.notes.append(n)
+
+        if args.drums:
+            # add a drum hit for each packet, different percussion instrument for c2s and s2c
+            # percussion instruments are encoded via note numbers from 35 to 81
+            # that (I think, roughly) maps to 65Hz (35), to 880Hz (81)
+            # so we'll try note 35 (acoustic bass drum) = 65Hz for c2s
+            # and note 38 (acoustic snare) = 77Hz for s2c
+            # but we hardcode drums for now
+            for i in range(0,len(s.s_psizes)):
+                n=noteinfo(65,50,(s.s_delays[i]+s.timestamp)-w.earliest,100,True,9,track+2,9)
+                n.notenum=35
+                w.notes.append(n)
+            for i in range(0,len(s.d_psizes)):
+                n=noteinfo(77,50,(s.d_delays[i]+s.timestamp)-w.earliest,200,True,9,track+2,9)
+                n.notenum=38
                 w.notes.append(n)
         track+=1
 
@@ -1049,19 +1071,23 @@ for w in the_arr:
 for w in the_arr:
     table={}
     for note in w.notes:
-        # freq2note version
-        # table version - default
-        notenum=size2num(note.packetsize,note.c2s,table)
-        if args.notegen == 'freq':
-            notenum=freq2num(note.freq)
-        # let's move all notes up by N octaves where N is the channel number and
-        # do that modulo our bounds
-        low_num=freq2num(lowest_note)
-        high_num=freq2num(highest_note)
-        increment=(note.channel*7)%(high_num-low_num)
-        notenum = notenum + increment
-        if notenum>=high_num:
-            notenum -= (high_num-low_num)
+        if note.channel!=9:
+            # freq2note version
+            # table version - default
+            notenum=size2num(note.packetsize,note.c2s,table)
+            if args.notegen == 'freq':
+                notenum=freq2num(note.freq)
+            # let's move all notes up by N octaves where N is the channel number and
+            # do that modulo our bounds
+            low_num=freq2num(lowest_note)
+            high_num=freq2num(highest_note)
+            increment=(note.channel*7)%(high_num-low_num)
+            notenum = notenum + increment
+            if notenum>=high_num:
+                notenum -= (high_num-low_num)
+        else:
+            # already assigned
+            notenum=note.notenum
         # linear time
         ontime=time_dilation*int(note.start)
         offtime=time_dilation*int(note.start+note.duration)
