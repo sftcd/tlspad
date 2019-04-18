@@ -263,6 +263,10 @@ more later (as usual:-)
 
 ## Current musical stuff
 
+- Ah - a [numbering scheme](https://en.wikipedia.org/wiki/Forte_number)!
+    - If mapping sizes -> those and then using [chord progressions](https://en.wikipedia.org/wiki/List_of_chord_progressions) 
+    - then we migth be onto something (which could sound just as bad;-)
+
 - Will revisit [Puredata](https://puredata.info/)
     - Also some tutorial and associated tooling at [processing.org](https://processing.org/tutorials/)
     (in particular, one on [sound](https://processing.org/tutorials/sound/)).

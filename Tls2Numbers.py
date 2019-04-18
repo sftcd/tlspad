@@ -154,6 +154,9 @@ argparser.add_argument('-r','--recurse',
 argparser.add_argument('-v','--verbose',
                     help='produce more output',
                     action='store_true')
+argparser.add_argument('-e','--exchanges',
+                    help='anaylse exchanges by time',
+                    action='store_true')
 args=argparser.parse_args()
 
 if args.fodname is not None:
@@ -277,6 +280,67 @@ for s in sessions:
     if s2cc != 0:
         sxpoints+=s.d_delays
         sypoints+=s.d_psizes
+
+    # figure out cadence (the timing of client/server interactions)
+    if args.exchanges is None or args.exchanges == False:
+        continue
+    # for each c2s packet delay, figure what packets send and rx'd before
+    # next c2s packet, and store that exchange in our list of interactions
+    interactions=[]
+    numc2ss=len(s.s_delays)
+    # eat any APDUs from server before the client has sent one
+    # my theory is that those are TLSv1.3 EncryptedExtensions or
+    # maybe session tickets, with 0RTT early data, that'd not be
+    # right but I'm not sure I'm seeing that (based on using 
+    # wireshark to also look at traffic)
+    # TODO: check theory!
+    s2cind=0
+    if numc2ss!=0:
+        first_c2sd=s.s_delays[0] 
+        while s2cind<len(s.d_delays) and s.d_delays[s2cind] < first_c2sd:
+            s2cind+=1
+    c2sind=0
+    while c2sind < numc2ss:
+        next_c2sd=0
+        this_c2sd=s.s_delays[c2sind] 
+        if (c2sind<(numc2ss-1)):
+            next_c2sd=s.s_delays[c2sind+1]
+            diff_c2sd=next_c2sd-this_c2sd
+            # if there are two c2s messages <10ms apart, we'll assume
+            # that's down to fragmentation or similar and merge 'em
+            # as even if they're separate HTTP requests, the answers
+            # will be interleaved too (from our non-decrypting 
+            # perspective)
+            while diff_c2sd < 10 and c2sind<(numc2ss-1):
+                c2sind+=1
+                next_c2sd=s.s_delays[c2sind]
+                diff_c2sd=next_c2sd-this_c2sd
+        else:
+            next_c2sd=sys.maxsize
+
+        # store the sizes and timings of packets 'till the next
+        # c2s time
+        s2ct=[]
+        s2cp=[]
+        exchange={}
+        while s2cind<len(s.d_delays) and s.d_delays[s2cind] < next_c2sd:
+            s2ct.append(s.d_delays[s2cind])
+            s2cp.append(s.d_psizes[s2cind])
+            s2cind+=1
+        if len(s2ct) > 0 :
+            exchange["dur"]=s2ct[-1]-this_c2sd
+        else:
+            exchange["dur"]=0
+        exchange["c2st"]=this_c2sd
+        exchange["c2sp"]=s.s_psizes[c2sind]
+        exchange["s2cp"]=s2cp
+        exchange["s2ct"]=s2ct
+        print(s.fname+"/"+str(s.sess_id) + ": " + str(exchange))
+        interactions.append(exchange)
+        c2sind+=1
+
+    #print(interactions)
+
 
 print("Processsed " + str(nsessions) + " TLS sessions")
 
