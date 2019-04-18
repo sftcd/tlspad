@@ -288,6 +288,9 @@ for s in sessions:
     # next c2s packet, and store that exchange in our list of interactions
     interactions=[]
     numc2ss=len(s.s_delays)
+    # we're at least 10ms is needed for a real answer, otherwise
+    # the s2c packet likely answers the previous c2s packet
+    minRTT=10
     # eat any APDUs from server before the client has sent one
     # my theory is that those are TLSv1.3 EncryptedExtensions or
     # maybe session tickets, with 0RTT early data, that'd not be
@@ -300,30 +303,37 @@ for s in sessions:
         while s2cind<len(s.d_delays) and s.d_delays[s2cind] < first_c2sd:
             s2cind+=1
     c2sind=0
+    next_c2sd=0
     while c2sind < numc2ss:
-        next_c2sd=0
+        c2st=[]
+        c2sp=[]
         this_c2sd=s.s_delays[c2sind] 
+        c2st.append(this_c2sd)
+        c2sp.append(s.s_psizes[c2sind])
         if (c2sind<(numc2ss-1)):
-            next_c2sd=s.s_delays[c2sind+1]
-            diff_c2sd=next_c2sd-this_c2sd
             # if there are two c2s messages <10ms apart, we'll assume
             # that's down to fragmentation or similar and merge 'em
             # as even if they're separate HTTP requests, the answers
             # will be interleaved too (from our non-decrypting 
             # perspective)
-            while diff_c2sd < 10 and c2sind<(numc2ss-1):
-                c2sind+=1
-                next_c2sd=s.s_delays[c2sind]
+            diff_c2sd=0
+            while diff_c2sd < minRTT and c2sind<(numc2ss-1):
+                next_c2sd=s.s_delays[c2sind+1]
                 diff_c2sd=next_c2sd-this_c2sd
+                if diff_c2sd < minRTT:
+                    c2sind+=1
+                    c2st.append(next_c2sd)
+                    c2sp.append(s.s_psizes[c2sind])
         else:
             next_c2sd=sys.maxsize
+        c2sind+=1
 
         # store the sizes and timings of packets 'till the next
         # c2s time
         s2ct=[]
         s2cp=[]
         exchange={}
-        while s2cind<len(s.d_delays) and s.d_delays[s2cind] < next_c2sd:
+        while s2cind<len(s.d_delays) and s.d_delays[s2cind] < (next_c2sd + minRTT):
             s2ct.append(s.d_delays[s2cind])
             s2cp.append(s.d_psizes[s2cind])
             s2cind+=1
@@ -331,13 +341,12 @@ for s in sessions:
             exchange["dur"]=s2ct[-1]-this_c2sd
         else:
             exchange["dur"]=0
-        exchange["c2st"]=this_c2sd
-        exchange["c2sp"]=s.s_psizes[c2sind]
+        exchange["c2st"]=c2st
+        exchange["c2sp"]=c2sp
         exchange["s2cp"]=s2cp
         exchange["s2ct"]=s2ct
         print(s.fname+"/"+str(s.sess_id) + ": " + str(exchange))
         interactions.append(exchange)
-        c2sind+=1
 
     #print(interactions)
 
