@@ -290,7 +290,11 @@ for s in sessions:
     numc2ss=len(s.s_delays)
     # we're at least 10ms is needed for a real answer, otherwise
     # the s2c packet likely answers the previous c2s packet
-    minRTT=10
+    # estimate of RTT is based on the ClientHello/ServerHello
+    # time gap, use that if it's >0
+    minRTT=0
+    if s.rttest>0:
+        minRTT=s.rttest
     # eat any APDUs from server before the client has sent one
     # my theory is that those are TLSv1.3 EncryptedExtensions or
     # maybe session tickets, with 0RTT early data, that'd not be
@@ -341,10 +345,11 @@ for s in sessions:
             exchange["dur"]=s2ct[-1]-this_c2sd
         else:
             exchange["dur"]=0
+        exchange["rttest"]=minRTT
         exchange["c2st"]=c2st
         exchange["c2sp"]=c2sp
-        exchange["s2cp"]=s2cp
         exchange["s2ct"]=s2ct
+        exchange["s2cp"]=s2cp
         print(s.fname+"/"+str(s.sess_id) + ": " + str(exchange))
         interactions.append(exchange)
 

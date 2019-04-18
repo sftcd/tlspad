@@ -48,6 +48,7 @@ class TLSSession():
             'cvsize',
             'chsize',
             'shsize',
+            'rttest',
             'min_pdu',
             'max_pdu',
             'num_sizes',
@@ -75,6 +76,7 @@ class TLSSession():
         self.cvsize=0 # cert verify size if seen in h/s
         self.chsize=0 # ClientHello size
         self.shsize=0 # ServerHello size
+        self.rttest=0 # Estimated RTT based on gap between ClientHello and ServerHello timing
         self.min_pdu=sys.maxsize 
         self.max_pdu=0
         self.num_sizes=0
@@ -92,6 +94,7 @@ class TLSSession():
                 " file: " + self.fname + "\n" + \
                 "\t" + self.src + ":" + self.sport + "->" + self.dst + ":" + self.dport + "\n" + \
                 "\t" + "CH size: " +  str(self.chsize) + " SH size: " + str(self.shsize) + "\n" +  \
+                "\t" + "Estimated RTT: " +  str(self.rttest) + "\n" + \
                 "\t" + "Cert size: " +  str(self.certsize) + " CV size (proxy): " + str(self.cvsize) + "\n" +  \
                 "\t" + "Min PDU: " + str(self.min_pdu) + " Max PDU: " + str(self.max_pdu) + " Num sizes: " + str(self.num_sizes) + "\n" + \
                 "\t" + "source packet sizes: " + str(self.s_psizes) + "\n"+ \
@@ -177,6 +180,7 @@ def analyse_pcaps(flist,sessions,verbose):
             print("Processing " + fname)
         try:
             f = pyshark.FileCapture(fname,display_filter='ssl')
+            chtime=0
             for pkt in f:
                 src=""
                 if 'ip' in pkt:
@@ -228,10 +232,16 @@ def analyse_pcaps(flist,sessions,verbose):
                         if pkt.ssl.handshake_type=="1":
                             #print("ClientHello for " + str(this_sess.sess_id))
                             this_sess.note_chsize(pkt.ssl.record_length)
+                            chtime=pkt.sniff_time
                             pass
                         elif pkt.ssl.handshake_type=="2":
                             #print("ServerHello")
                             this_sess.note_shsize(pkt.ssl.record_length)
+                            if chtime==0:
+                                this_sess.rttest=-1
+                            else:
+                                td=pkt.sniff_time-chtime
+                                this_sess.rttest=int(td.total_seconds()*1000)
                             pass
                         elif pkt.ssl.handshake_type=="4":
                             #print("NewSessionTicket")
