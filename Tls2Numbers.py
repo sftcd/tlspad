@@ -292,9 +292,9 @@ for s in sessions:
     # the s2c packet likely answers the previous c2s packet
     # estimate of RTT is based on the ClientHello/ServerHello
     # time gap, use that if it's >0
-    minRTT=0
+    rttest=0
     if s.rttest>0:
-        minRTT=s.rttest
+        rttest=s.rttest
     # eat any APDUs from server before the client has sent one
     # my theory is that those are TLSv1.3 EncryptedExtensions or
     # maybe session tickets, with 0RTT early data, that'd not be
@@ -312,7 +312,7 @@ for s in sessions:
         c2st=[]
         c2sp=[]
         this_c2sd=s.s_delays[c2sind] 
-        c2st.append(this_c2sd)
+        c2st.append(int(this_c2sd))
         c2sp.append(s.s_psizes[c2sind])
         if (c2sind<(numc2ss-1)):
             # if there are two c2s messages <10ms apart, we'll assume
@@ -321,12 +321,12 @@ for s in sessions:
             # will be interleaved too (from our non-decrypting 
             # perspective)
             diff_c2sd=0
-            while diff_c2sd < minRTT and c2sind<(numc2ss-1):
+            while diff_c2sd < rttest and c2sind<(numc2ss-1):
                 next_c2sd=s.s_delays[c2sind+1]
                 diff_c2sd=next_c2sd-this_c2sd
-                if diff_c2sd < minRTT:
+                if diff_c2sd < rttest:
                     c2sind+=1
-                    c2st.append(next_c2sd)
+                    c2st.append(int(next_c2sd))
                     c2sp.append(s.s_psizes[c2sind])
         else:
             next_c2sd=sys.maxsize
@@ -337,20 +337,22 @@ for s in sessions:
         s2ct=[]
         s2cp=[]
         exchange={}
-        while s2cind<len(s.d_delays) and s.d_delays[s2cind] < (next_c2sd + minRTT):
-            s2ct.append(s.d_delays[s2cind])
+        while s2cind<len(s.d_delays) and s.d_delays[s2cind] < (next_c2sd + rttest):
+            s2ct.append(int(s.d_delays[s2cind]))
             s2cp.append(s.d_psizes[s2cind])
             s2cind+=1
+        exchange["sess_id"]=s.sess_id
+        exchange["fname"]=s.fname
         if len(s2ct) > 0 :
             exchange["dur"]=s2ct[-1]-this_c2sd
         else:
             exchange["dur"]=0
-        exchange["rttest"]=minRTT
+        exchange["rttest"]=rttest
         exchange["c2st"]=c2st
         exchange["c2sp"]=c2sp
         exchange["s2ct"]=s2ct
         exchange["s2cp"]=s2cp
-        print(s.fname+"/"+str(s.sess_id) + ": " + str(exchange))
+        print(exchange)
         interactions.append(exchange)
 
     #print(interactions)

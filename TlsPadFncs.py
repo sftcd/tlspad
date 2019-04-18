@@ -48,6 +48,7 @@ class TLSSession():
             'cvsize',
             'chsize',
             'shsize',
+            'chtime',
             'rttest',
             'min_pdu',
             'max_pdu',
@@ -76,6 +77,7 @@ class TLSSession():
         self.cvsize=0 # cert verify size if seen in h/s
         self.chsize=0 # ClientHello size
         self.shsize=0 # ServerHello size
+        self.chtime=0 # for Estimated RTT record time of ClientHello 
         self.rttest=0 # Estimated RTT based on gap between ClientHello and ServerHello timing
         self.min_pdu=sys.maxsize 
         self.max_pdu=0
@@ -232,15 +234,15 @@ def analyse_pcaps(flist,sessions,verbose):
                         if pkt.ssl.handshake_type=="1":
                             #print("ClientHello for " + str(this_sess.sess_id))
                             this_sess.note_chsize(pkt.ssl.record_length)
-                            chtime=pkt.sniff_time
+                            this_sess.chtime=pkt.sniff_time
                             pass
                         elif pkt.ssl.handshake_type=="2":
                             #print("ServerHello")
                             this_sess.note_shsize(pkt.ssl.record_length)
-                            if chtime==0:
+                            if this_sess.chtime==0:
                                 this_sess.rttest=-1
                             else:
-                                td=pkt.sniff_time-chtime
+                                td=pkt.sniff_time-this_sess.chtime
                                 this_sess.rttest=int(td.total_seconds()*1000)
                             pass
                         elif pkt.ssl.handshake_type=="4":
