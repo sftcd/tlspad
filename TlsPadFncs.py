@@ -335,3 +335,80 @@ def analyse_pcaps(flist,sessions,verbose):
         except Exception as e:
             sys.stderr.write(str(traceback.format_exc()))
             sys.stderr.write("Exception: " + str(e) + "\n")
+
+def analyse_cadence(sessions):
+    interactions=[]
+    for s in sessions: 
+        # for each c2s packet delay, figure what packets send and rx'd before
+        # next c2s packet, and store that exchange in our list of interactions
+        numc2ss=len(s.s_delays)
+        # we're likely at least 10ms is needed for a real answer, otherwise
+        # the s2c packet likely answers the previous c2s packet
+        # estimate of RTT is based on the ClientHello/ServerHello
+        # time gap, use that if it's >0 (it might not be if e.g.
+        # the ClientHello was sent before we started capturing
+        # traffic)
+        rttest=10
+        if s.rttest>0:
+            rttest=s.rttest
+        # eat any APDUs from server before the client has sent one
+        # my theory is that those are TLSv1.3 EncryptedExtensions or
+        # maybe session tickets, with 0RTT early data, that'd not be
+        # right but I'm not sure I'm seeing that (based on using 
+        # wireshark to also look at traffic)
+        # TODO: check theory!
+        s2cind=0
+        if numc2ss!=0:
+            first_c2sd=s.s_delays[0] 
+            while s2cind<len(s.d_delays) and s.d_delays[s2cind] < first_c2sd:
+                s2cind+=1
+        c2sind=0
+        next_c2sd=0
+        while c2sind < numc2ss:
+            c2st=[]
+            c2sp=[]
+            this_c2sd=s.s_delays[c2sind] 
+            c2st.append(int(this_c2sd))
+            c2sp.append(s.s_psizes[c2sind])
+            if (c2sind<(numc2ss-1)):
+                # if there are two c2s messages <10ms apart, we'll assume
+                # that's down to fragmentation or similar and merge 'em
+                # as even if they're separate HTTP requests, the answers
+                # will be interleaved too (from our non-decrypting 
+                # perspective)
+                diff_c2sd=0
+                while diff_c2sd < rttest and c2sind<(numc2ss-1):
+                    next_c2sd=s.s_delays[c2sind+1]
+                    diff_c2sd=next_c2sd-this_c2sd
+                    if diff_c2sd < rttest:
+                        c2sind+=1
+                        c2st.append(int(next_c2sd))
+                        c2sp.append(s.s_psizes[c2sind])
+            else:
+                next_c2sd=sys.maxsize
+            c2sind+=1
+            # store the sizes and timings of packets 'till the next
+            # c2s time
+            s2ct=[]
+            s2cp=[]
+            exchange={}
+            while s2cind<len(s.d_delays) and s.d_delays[s2cind] < (next_c2sd + rttest):
+                s2ct.append(int(s.d_delays[s2cind]))
+                s2cp.append(s.d_psizes[s2cind])
+                s2cind+=1
+            exchange["sess_id"]=s.sess_id
+            exchange["fname"]=s.fname
+            if len(s2ct) > 0 :
+                exchange["dur"]=s2ct[-1]-this_c2sd
+            else:
+                exchange["dur"]=0
+            exchange["rttest"]=rttest
+            exchange["c2st"]=c2st
+            exchange["c2sp"]=c2sp
+            exchange["s2ct"]=s2ct
+            exchange["s2cp"]=s2cp
+            #print(exchange)
+            interactions.append(exchange)
+    #print(interactions)
+    return(interactions)
+
