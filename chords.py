@@ -21,13 +21,12 @@
 # SOFTWARE.
 #
 
-# TLS parameters (numbers used below variously) are found at:
-# https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml
+# This file will likely disappear. Used it to play about with chords
+# to understand 'em before using 'em.
 
 import traceback
 import os,sys,argparse,re,random,time
 from TlsPadFncs import *
-
 
 # [Forte numbers](https://en.wikipedia.org/wiki/Forte_number) provide a way to number
 # chords, I'll ignore the numbers themselves (e.g. "3-3A" would be "014" below and 
@@ -66,35 +65,32 @@ class Chords():
                 'chord_id',
                 'reltime',
                 'notes',
-                'chordlist'
             ]
 
     def __init__(self,t=0,n=[]):
         self.chord_id=random.getrandbits(32)
         self.reltime=t
         self.notes=n
-        self.makelist()
 
     def __str__(self):
-        return "Chords: " + str(self.chord_id) + " reltime: " + str(self.reltime) + "\n" + str(self.notes) + "\n"
-
-    def makelist(self):
-        self.chordlist=["047","036","234","456"]
+        return "Chords: " + str(self.chord_id) + " reltime: " + str(self.reltime) + "\n" + str(self.notes) 
 
     def pickchordN(self,n):
         try:
-            return self.chordlist[n]
+            return forte_primes[n]
         except:
-            raise ValueError('pickchordN: out of range, ' + str(n) + ' > length(' + str(len(self.chordlist)) + ')')
+            raise ValueError('pickchordN: out of range, ' + str(n) + ' > length(' + str(len(forte_primes)) + ')')
 
     def hash2N(self,size):
-        return size % len(self.chordlist)
+        return size % len(forte_primes)
 
     def nextchord(self,size):
         return self.pickchordN(self.hash2N(size))
 
 def session2chords(sess: TLSSession):
     '''
+        OBE: I'll no longer use this, it's just here for the record...
+
         Take a TLSsession and return a set of chords for that session
         TODO: add some chord progression stuff but without adding
         synthetic structure (if possible)
@@ -109,37 +105,95 @@ def session2chords(sess: TLSSession):
 def cadence2chords(cadence):
     '''
         Take a cadence and return a set of chords for that 
+
+        We end up with these parameters:
+            duration of the cadence (ms)
+            for c->s and s->c directions:
+                the set of packet sizes seen, with a count of each
+            or...
+            D, {CS: PC}, {SC: PC} where
+            D is overall cadence duraion
+            {} represents a set
+            CS is a client->server packet size
+            PC is the count of the number of those packets sent
+            SC is a server->client packet size
+            PC is as above
+
+            our non-secret plan:
+
+            high level:
+                - ignore too-short notes for now, we can dilate time later
+                - map sizes to chords from forte list, for now with a 
+                  straight modulus
+                - ignore packet times (most aren't useful) other than the
+                  first in each direction (and subtract RTT estmiate too)
+                - note duration is proportional to the number of bytes in
+                  packets of that size (add 'em all up, figure how many
+                  (fractional) ms that means per byte and then scale up)
+                - volume/velocity similarly reflects number of packets
+                  of that size seen
+                - c->s is RHS (high notes) of piano keyboard, s->c: LHS
+                - within the cadence we'll ascend/descend chords somehow 
+                  (yes, that's TBD) - mostly descend for s->c packets as 
+                  there're few multipacket c->s cadences
+
+            that'll sound as it does, we'll see when we get there
+
+            to do that, I'll need to merge this with the classes in
+            Tls2Music and merge some of those into TlsPadFncs so
+            it may take a few mins
+            
     '''
-    chords=Chords(0,[])
+    # initial client and server size/count arrays
+    csc={}
     for size in cadence["c2sp"]:
-        chords.notes.append(chords.nextchord(size))
+        if size in csc:
+            csc[size]=csc[size]+1
+        else:
+            csc[size]=1
+    ssc={}
     for size in cadence["s2cp"]:
+        if size in ssc:
+            ssc[size]=ssc[size]+1
+        else:
+            ssc[size]=1
+    print("Dur: " + str(cadence["dur"]) + " C->S: " + str(csc))
+    print("Dur: " + str(cadence["dur"]) + " S->C: " + str(ssc))
+
+    chords=Chords(cadence["c2st"][0],[])
+    for size in csc:
+        chords.notes.append(chords.nextchord(size))
+    for size in ssc:
         chords.notes.append(chords.nextchord(size))
     return chords
 
 if __name__ == '__main__':
-    #try:
-        #tc=Chords(0,[])
-        #foo=tc.pickchordN(1)
-        #print("tc[1]:" + str(foo))
-        #tc.pickchordN(100)
-    #except Exception as e:
-        #print("Good exception: " + str(e))
-    #print("Base thing: " + str(tc))
+    '''
+    #first cut, newer test code below
+    try:
+        tc=Chords(0,[])
+        foo=tc.pickchordN(1)
+        print("tc[1]:" + str(foo))
+        tc.pickchordN(100)
+    except Exception as e:
+        print("Good exception: " + str(e))
+    print("Base thing: " + str(tc))
+    '''
     try:
         sessions=[]
         flist=[]
-        flist.append("justone.pcap")
+        flist.append(sys.argv[1])
         analyse_pcaps(flist,sessions,True)
         insts=analyse_cadence(sessions)
         #print(insts)
         i=0
         for exchange in insts:
             print("Doing exchange "+str(i))
-            i+=1
-            #print(exchange)
+            print("Exchange: " + str(exchange))
             echords=cadence2chords(exchange)
-            print(echords)
+            print("Chords: " + str(echords))
+            print("Done with exchange "+str(i))
+            i+=1
     except Exception as e:
         print("Bad exception: " + str(e))
 
