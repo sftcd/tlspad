@@ -153,7 +153,7 @@ forte_primes= [
     "01235689", "01235789", "01236789", "01245679", "01245689", "01245689T", "01245789", "01345679",
     "01345689", "02345679", "012345678", "012345679", "012345689", "012345789", "012346789" ]
 
-class noteinfo():
+class NoteInfo():
     '''
     Info about a note/packet
     '''
@@ -169,7 +169,7 @@ class noteinfo():
             "notenum",
             "vel",
             ]
-    def __init__(self,c2s=False,ch=0,tr=0,inst=0):
+    def __init__(self,c2s=False,ch=0,tr=0,inst=0,vel=0):
         self.c2s=c2s
         self.notenum=0
         self.ontime=0
@@ -178,6 +178,7 @@ class noteinfo():
         self.channel=ch
         self.track=tr
         self.instrument=inst
+        self.vel=vel
     def __str__(self):
         s_str="Note: " 
         if self.c2s:
@@ -185,7 +186,7 @@ class noteinfo():
         else:
             s_str += " Dir: S->C" 
         s_str+=" num: " + str(self.notenum) + " on: " + str(self.ontime) + " off: " + str(self.offtime) + " ch: " + str(self.channel) \
-                + " track: " + str(self.track) + " instrument: " + str(self.instrument)
+                + " track: " + str(self.track) + " instrument: " + str(self.instrument) + " vel: " + str(self.vel)
         return(s_str)
 
 def get_start(foo):
@@ -265,6 +266,60 @@ class tls_session_set():
 
 # Functions
 
+def cadence2notes(cadence,channel,track,instrument,verbose):
+    # initial client and server size/count arrays
+    c2stotal=0
+    csc={}
+    for size in cadence["c2sp"]:
+        c2stotal+=size
+        if size in csc:
+            csc[size]=csc[size]+1
+        else:
+            csc[size]=1
+    ssc={}
+    s2ctotal=0
+    for size in cadence["s2cp"]:
+        s2ctotal+=size
+        if size in ssc:
+            ssc[size]=ssc[size]+1
+        else:
+            ssc[size]=1
+    coffset=0
+    counts=[]
+    sizes=[]
+    notes=[]
+    dur=0
+    for size in csc:
+        counts.append(csc[size])
+        sizes.append(size)
+    for ind in range (0,len(csc)):
+        coffset+=dur
+        dur=0.5*(counts[ind]*sizes[ind]/c2stotal)*cadence["dur"]
+        # middle C plus some octaves
+        n=NoteInfo(True,channel,track,instrument)
+        n.ontime=cadence["c2st"][0]+coffset
+        n.offtime=n.ontime+dur
+        n.notenum=60+(sizes[ind]*counts[ind])%60
+        notes.append(n)
+    soffset=0
+    counts=[]
+    sizes=[]
+    dur=0
+    for size in ssc:
+        counts.append(ssc[size])
+        sizes.append(size)
+    for ind in range (0,len(ssc)):
+        soffset+=dur
+        dur=0.5*(counts[ind]*sizes[ind]/s2ctotal)*cadence["dur"]
+        # middle C minus some octaves
+        n=NoteInfo(False,channel,track,instrument)
+        n.ontime=cadence["c2st"][0]+soffset
+        n.offtime=n.ontime+dur
+        n.notenum=60-(sizes[ind]*counts[ind])%60
+        notes.append(n)
+
+    return notes
+
 def cadence2chords(cadence,channel,track,instrument,verbose):
     # initial client and server size/count arrays
     c2stotal=0
@@ -315,7 +370,7 @@ def cadence2chords(cadence,channel,track,instrument,verbose):
             # middle C minus some octaves
             base=60-(channel%4)*12
         for k in range(0,len(thesechords.fortes[ind])):
-            n=noteinfo(thesechords.c2sdirs[ind],channel,track,instrument)
+            n=NoteInfo(thesechords.c2sdirs[ind],channel,track,instrument)
             n.ontime=thesechords.reltime+offset
             n.offtime=n.ontime+dur
             if thesechords.fortes[ind][k]=='T':
@@ -488,25 +543,23 @@ def killsilence(array, mingap):
 # scale time oddly...
 def scaletime(x):
     '''
-    We'll assume original is ~30s or less (before supression)
-    and we'll map down to ~10s, with 1st second expanded to
-    2.5s, 2nd linear, 3rd 0.75 and the rest to 0.4
+    We'll assume original is ~30s or so 
+    1st second is expanded to 4s
+    2nd second is expanded to 2s
+    3rd is linear 
+    and the rest to 0.4
     '''
     mapped=0
     if x < 0:
         raise ValueError(sys.argv[0] + ': negative X in scaletime - ' + str(x) + ' - exiting')
     elif x <= 1000:
-        mapped=int(2.5*x)
-        #print("Mapped1: "+str(x)+" to: "+str(mapped)) 
+        mapped=int(4*x)
     elif x <= 2000:
-        mapped=int((x-1000)+2500)
-        #print("Mapped2: "+str(x)+" to: "+str(mapped)) 
+        mapped=int((2*x-1000)+4000)
     elif x <= 3000:
-        mapped=int((x-2000)*0.75+3500)
-        #print("Mapped3: "+str(x)+" to: "+str(mapped)) 
+        mapped=int((x-2000)+6000)
     else: 
-        mapped=int((x-3000)*0.4+4250)
-        #print("Mapped4: "+str(x)+" to: "+str(mapped)) 
+        mapped=int((x-3000)*0.4+7000)
     return mapped
 
 # the velocity with which we hit keys, this function will
@@ -561,6 +614,9 @@ argparser.add_argument('-r','--repeats',
                     help='repeat output N times')
 argparser.add_argument('-d','--drums',
                     help='add drumbeats, once per packet',
+                    action='store_true')
+argparser.add_argument('-c','--chords',
+                    help='map TLS patterns to chords, not notes',
                     action='store_true')
 args=argparser.parse_args()
 
@@ -772,11 +828,10 @@ if len(the_arr)==0:
     sys.exit(0)
 
 # allocate sessions to channels/instruments
+# if there is a non-empty primary list then...
 # if src/dst is in primary list, then that gets lowest numbered channels
-# otherwise we alphanumerically sort sessions by src:port:dst:port
-# and allocate channels accordingly
-# midi channel 9 is drums, so we've only 15, not 16 to play with
-# for now
+# else if there is no primary list then we number from 0 on up
+# midi channel 9 is drums, so is handled specially (if at all)
 
 wcnt=0
 for w in the_arr:
@@ -784,12 +839,16 @@ for w in the_arr:
     # next primary and secondary channels to allocate
     pchan=0
     schan=14
-    if args.verbose:
-        print("Allocating channels to set " + str(wcnt) + " which has " + str(w.nsessions) + " sessions")
     # first sort the sessions in each W
     w.sessions=sorted(w.sessions,key=get_sortstr)
     for s in w.sessions:
-        if (len(s.s_psizes)>0 or len(s.d_psizes)>0) and (s.src in primary_arr or s.dst in primary_arr):
+        
+        if len(primary_arr)==0:
+            if args.verbose:
+                print("\tAllocated " + str(s.sess_id) + " to channel " + str(pchan))
+            s.channel=pchan
+            pchan+=1
+        elif (len(s.s_psizes)>0 or len(s.d_psizes)>0) and (s.src in primary_arr or s.dst in primary_arr):
             if args.verbose:
                 print("\tAllocated " + str(s.sess_id) + " to primary channel " + str(pchan))
             s.channel=pchan
@@ -803,23 +862,8 @@ for w in the_arr:
             # start over
             pchan=0
             schan=14
-        # see if a hashing -> bucket scheme is useful for instruments...
-        # first try: multiply lengths and numbers of packets
-        # and then try mod 127 (nearest prime to 128)
-        prod=1
-        if len(s.s_psizes) > 0:
-            prod=prod*len(s.s_psizes)
-            for plen in s.s_psizes:
-                if plen>0:
-                    prod=prod*plen
-        if len(s.d_psizes) > 0:
-            prod=prod*len(s.d_psizes)
-            for plen in s.d_psizes:
-                if plen>0:
-                    prod=prod*plen
-        s.instrument=(prod%127)
-        if (args.verbose):
-            print("Hash prod for " + str(s.sess_id) + " is " + str(prod) + " Instrument: " + str(s.instrument))
+        if pchan==14:
+            pchan=0
 
 # bump up by one for anyone >=9 so we use 0..8 and 10..15
 for w in the_arr:
@@ -832,7 +876,6 @@ for w in the_arr:
 for w in the_arr:
     track=0
     for s in w.sessions:
-
         # break remaining sessions into cadences
         insts=analyse_cadence([s])
         if args.verbose:
@@ -840,14 +883,19 @@ for w in the_arr:
         for e in insts:
             if args.verbose:
                 print("Exchange:" + str(e))
-            echords=cadence2chords(e,s.channel,track+2,s.instrument,args.verbose)
-            if args.verbose:
-                print("Chords: " + str(echords))
-            if len(echords.notes)!=0:
-                for n in echords.notes:
+            if args.chords:
+                echords=cadence2chords(e,s.channel,track+2,s.instrument,args.verbose)
+                if args.verbose:
+                    print("Chords: " + str(echords))
+                if len(echords.notes)!=0:
+                    for n in echords.notes:
+                        w.notes.append(n)
+                # keep 'em in a bit
+                del echords
+            else:
+                cnotes=cadence2notes(e,s.channel,track+2,s.instrument,args.verbose)
+                for n in cnotes:
                     w.notes.append(n)
-            # keep 'em in a bit
-            del echords
 
         if args.drums:
             # add a drum hit for each packet, different percussion instrument for c2s and s2c
@@ -857,13 +905,13 @@ for w in the_arr:
             # and note 38 (acoustic snare) = 77Hz for s2c
             # but we hardcode drums for now
             for i in range(0,len(s.s_psizes)):
-                n=noteinfo(True,9,track+2,9)
+                n=NoteInfo(True,9,track+2,9)
                 n.ontime=(s.s_delays[i]+s.timestamp)-w.earliest
                 n.offtime=n.ontime+100
                 n.notenum=35
                 w.notes.append(n)
             for i in range(0,len(s.d_psizes)):
-                n=noteinfo(False,9,track+2,9)
+                n=NoteInfo(False,9,track+2,9)
                 n.ontime=(s.d_delays[i]+s.timestamp)-w.earliest
                 n.offtime=n.ontime+200
                 n.notenum=38
@@ -879,9 +927,8 @@ for w in the_arr:
 
 # pick notes from frequencies and handle time munging
 for w in the_arr:
-    table={}
     for note in w.notes:
-        # linear time
+        # linear time, with possible dilation
         ontime=time_dilation*int(note.ontime)
         offtime=time_dilation*int(note.offtime)
         notenum=note.notenum
@@ -897,15 +944,12 @@ for w in the_arr:
             print("Weird offtime: " + str(offtime))
             sys.exit(4)
         # handle velocity (loudness) 
-        vel=velocity(notenum,note.channel,ontime,offtime-ontime,w.overall_duration)
-        # add what we've calculated to note, in cols 6-9
+        vel=velocity(notenum,note.channel,ontime,offtime-ontime,time_dilation*w.overall_duration)
+        # add what we've calculated to note
         note.notenum=notenum
         note.ontime=ontime
         note.offtime=offtime
         note.vel=vel
-    # table version
-    # print(table)
-    del table
 
 # write out midicsv file, one per src ip
 # to play such:

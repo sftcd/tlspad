@@ -65,6 +65,12 @@ later.
         pcap using all possible instruments so I can hear which sounds like
         what
 
+- [Tls2Music2.py](Tls2Music2.py) is another take at the above (easier for now
+  than properly re-factoring code that'll likely disappear). That can do 
+  chords, but sadly that hasn't worked so well so far. Also has cadences, where
+  we split each TLS session into what may be client/server interactions and
+  generate notes based on those, rather than packets. 
+
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music
     - Looks like selenium/geckodriver is causing some spurious 
