@@ -102,6 +102,9 @@ overall_repeats=1
 # Time-gap between repeats, in ms
 repeat_gap=100
 
+# Relative start time of drum sessions
+drumlimit=100
+
 # MIDI velicity max, min and number of channels we can use
 # and size of channel velocity increment (for overlapping
 # key-on conditions) - minvel and nchans could be command
@@ -384,6 +387,33 @@ def cadence2chords(cadence,channel,track,instrument,verbose):
                 n.notenum=base+ord(thesechords.fortes[ind][k])-ord('0')
             thesechords.notes.append(n)
     return thesechords
+
+def cadence2onechord(cadence,base,channel,track,instrument,verbose):
+    # as above but just one chord per cadence
+    # initial client and server size/count arrays
+    achord=Chords(cadence["c2st"][0],cadence["dur"],[],[],[],[],[])
+    c2stotal=0
+    for size in cadence["c2sp"]:
+        c2stotal+=size
+    s2ctotal=0
+    for size in cadence["s2cp"]:
+        s2ctotal+=size
+    achord.fortes.append(achord.nextchord(c2stotal+s2ctotal))
+    for k in range(0,len(achord.fortes[0])):
+        n=NoteInfo(True,channel,track,instrument)
+        n.ontime=achord.reltime
+        n.offtime=n.ontime+cadence["dur"]
+        if achord.fortes[0][k]=='T':
+            n.notenum=base+10
+        elif achord.fortes[0][k]=='E':
+            n.notenum=base+11
+        elif achord.fortes[0][k]=='*':
+            # TODO: check out what that fecking '*' means:-)
+            n.notenum=base+12
+        else:
+            n.notenum=base+ord(achord.fortes[0][k])-ord('0')
+        achord.notes.append(n)
+    return achord
 
 def selector_match(s,sels,sl=""):
     '''
@@ -873,6 +903,7 @@ for w in the_arr:
 
 # loop again through sessions to pick up PDU details
 # and generate initial note info
+base=60
 for w in the_arr:
     track=0
     for s in w.sessions:
@@ -883,11 +914,38 @@ for w in the_arr:
         for e in insts:
             if args.verbose:
                 print("Exchange:" + str(e))
-            if args.chords:
-                echords=cadence2chords(e,s.channel,track+2,s.instrument,args.verbose)
+            # for all sessions that start before time T, we'll render those
+            # as drums, then switch to chords/notes
+            if args.drums or e["c2st"][0] < drumlimit:
+                # add a drum hit for each packet, different percussion instrument for c2s and s2c
+                # percussion instruments are encoded via note numbers from 35 to 81
+                # that (I think, roughly) maps to 65Hz (35), to 880Hz (81)
+                # so we'll try note 35 (acoustic bass drum) = 65Hz for c2s
+                # and note 38 (acoustic snare) = 77Hz for s2c
+                # but we hardcode drums for now
+                for i in range(0,len(s.s_psizes)):
+                    n=NoteInfo(True,9,track+2,9)
+                    n.ontime=(s.s_delays[i]+s.timestamp)-w.earliest
+                    n.offtime=n.ontime+100
+                    n.notenum=35
+                    w.notes.append(n)
+                for i in range(0,len(s.d_psizes)):
+                    n=NoteInfo(False,9,track+2,9)
+                    n.ontime=(s.d_delays[i]+s.timestamp)-w.earliest
+                    n.offtime=n.ontime+200
+                    n.notenum=38
+                    w.notes.append(n)
+            elif args.chords:
+                # many chords/cadence version
+                #echords=cadence2chords(e,s.channel,track+2,s.instrument,args.verbose)
+                # one chord/cadence version
+                echords=cadence2onechord(e,base,s.channel,track+2,s.instrument,args.verbose)
                 if args.verbose:
                     print("Chords: " + str(echords))
                 if len(echords.notes)!=0:
+                    base = (base + 12) % 120
+                    if base==0:
+                        base=12
                     for n in echords.notes:
                         w.notes.append(n)
                 # keep 'em in a bit
@@ -897,25 +955,6 @@ for w in the_arr:
                 for n in cnotes:
                     w.notes.append(n)
 
-        if args.drums:
-            # add a drum hit for each packet, different percussion instrument for c2s and s2c
-            # percussion instruments are encoded via note numbers from 35 to 81
-            # that (I think, roughly) maps to 65Hz (35), to 880Hz (81)
-            # so we'll try note 35 (acoustic bass drum) = 65Hz for c2s
-            # and note 38 (acoustic snare) = 77Hz for s2c
-            # but we hardcode drums for now
-            for i in range(0,len(s.s_psizes)):
-                n=NoteInfo(True,9,track+2,9)
-                n.ontime=(s.s_delays[i]+s.timestamp)-w.earliest
-                n.offtime=n.ontime+100
-                n.notenum=35
-                w.notes.append(n)
-            for i in range(0,len(s.d_psizes)):
-                n=NoteInfo(False,9,track+2,9)
-                n.ontime=(s.d_delays[i]+s.timestamp)-w.earliest
-                n.offtime=n.ontime+200
-                n.notenum=38
-                w.notes.append(n)
         track+=1
 
 # sort notes timewise
