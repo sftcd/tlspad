@@ -54,19 +54,54 @@ def inject_sinewave(
     sawtooth waves... which we won't address here :) 
     We just inject this into the audio array at the start_time concerned
     """ 
-
     num_samples = duration_milliseconds * (sample_rate / 1000.0)
-
     offset = int(start_time * (sample_rate /1000.0) )
-
     al=len(audio)
-
     for x in range(int(num_samples)):
         try:
             ind=x+offset
             if ind<al:
                 ov=audio[x+offset]
                 nv=volume * math.sin(2 * math.pi * freq * ( x / sample_rate ))
+                audio[x+offset]= 0.5 * ov + 0.5 * nv
+            else:
+                # we've filled to end, may as well return
+                return
+        except Exception as e:
+            print("Overflow: " + str(e) + " x: "  + str(x) + " offset: " + str(offset) + " len(audio): " + str(len(audio)))
+            #raise e
+    return
+
+def inject_filtered_sinewave(
+        audio=[],
+        sample_rate=44100,
+        freq=440.0, 
+        start_time=0,
+        duration_milliseconds=500, 
+        volume=1.0,
+        thefilter=None,
+        filarr=None):
+    """
+    The sine wave generated here is the standard beep.  If you want something
+    more aggresive you could try a square or saw tooth waveform.   Though there
+    are some rather complicated issues with making high quality square and
+    sawtooth waves... which we won't address here :) 
+    We just inject this into the audio array at the start_time concerned
+    """ 
+    if thefilter is None:
+        return
+    num_samples = duration_milliseconds * (sample_rate / 1000.0)
+    offset = int(start_time * (sample_rate /1000.0) )
+    al=len(audio)
+    for x in range(int(num_samples)):
+        try:
+            ind=x+offset
+            msval=int(1000*ind/sample_rate)
+            #print(str(msval))
+            if ind<al:
+                ov=audio[x+offset]
+                nv=volume * math.sin(2 * math.pi * freq * ( x / sample_rate ))
+                nv=nv*thefilter(msval,filarr)
                 audio[x+offset]= 0.5 * ov + 0.5 * nv
             else:
                 # we've filled to end, may as well return

@@ -21,49 +21,34 @@
 # SOFTWARE.
 #
 
-# 2nd cut at this, superceding Tls2Music and chords for a bit
+# 3rd cut at it - try make a filter per TLS session
 
 '''
-        The latest music scheme:
+    For eacH TLS session make a filter function (variations may
+    exist), then pick a note/chord and play the filtered form of
+    that for the duration of the session.
 
-        Take a cadence and return a set of chords for that 
+    Possible fiter functions:
+        - a polynomial with packet sizes as coefficients and
+          order based on order seen, with sent packets using
+          negative co-efficients, e.g. if sessio was to send
+          one 100 byte packet then receive one 200 byte
+          packet and one 500 byte packet, we'd have:
+            f(x) = -100x + 200*x^2 + 500*x^3
+          To reduce that to a filter we divide by the max of
+          f(1) and abs(min(f(x in [1,-1]))) so tha we always
+          mape [-1,1] to [-1,1]
+        - variation: co-effs as log(2,size) to make numbers
+          smaller
+        - envelope: f(t) is a function that interoplates the 
+          packet sizes seen over time (negative for sent) so if 
+          a 100B packet was sent at t=1 and a 300B packet
+          received at t=2, then f(1.5)=200 or some other
+          interpolation
+        - variation: let f(t) decay to zero after N ms if
+          no new packets 
 
-        We end up with these parameters:
-            duration of the cadence (ms)
-            for c->s and s->c directions:
-                the set of packet sizes seen, with a count of each
-            or...
-            D, {CS: PC}, {SC: PC} where
-            D is overall cadence duraion
-            {} represents a set
-            CS is a client->server packet size
-            PC is the count of the number of those packets sent
-            SC is a server->client packet size
-            PC is as above
-
-            our non-secret plan:
-
-            high level:
-                - ignore too-short notes for now, we can dilate time later
-                - map sizes to chords from forte list, for now with a 
-                  straight modulus
-                - ignore packet times (most aren't useful) other than the
-                  first in each direction (and subtract RTT estmiate too)
-                - note duration is proportional to the number of bytes in
-                  packets of that size (add 'em all up, figure how many
-                  (fractional) ms that means per byte and then scale up)
-                - volume/velocity similarly reflects number of packets
-                  of that size seen
-                - c->s is RHS (high notes) of piano keyboard, s->c: LHS
-                - within the cadence we'll ascend/descend chords somehow 
-                  (yes, that's TBD) - mostly descend for s->c packets as 
-                  there're few multipacket c->s cadences
-
-            that'll sound as it does, we'll see when we get there
-
-            to do that, I'll need to merge this with the classes in
-            Tls2Music and merge some of those into TlsPadFncs so
-            it may take a few mins
+    We'll try the evnelope first
 '''
 
 import traceback,math
@@ -618,6 +603,55 @@ def velocity(notenum,channel,offset,duration,overall_duration):
     return vel
 
 
+# envelope filter
+def mk_envfilter(s,ftype):
+    dolog=True
+    # make up an array of time,val based on packet times/sizes
+    # sent packets give negative values
+    darr=[]
+    minval=0
+    if len(s.s_psizes)>0:
+        minval=-1*max(s.s_psizes)
+    maxval=0
+    if len(s.d_psizes)>0:
+        maxval=max(s.d_psizes)
+    if dolog:
+        if minval!=0:
+            minval=-1*math.log2(-1*minval)
+        if maxval!=0:
+            maxval=math.log2(maxval)
+        for ind in range(0,len(s.s_psizes)):
+            darr.append([int(s.s_delays[ind]),(math.log2(s.s_psizes[ind])/minval)])
+        for ind in range(0,len(s.d_psizes)):
+            darr.append([int(s.d_delays[ind]),(math.log2(s.d_psizes[ind])/maxval)])
+    else:
+        for ind in range(0,len(s.s_psizes)):
+            darr.append([int(s.s_delays[ind]),(s.s_psizes[ind]/minval)])
+        for ind in range(0,len(s.d_psizes)):
+            darr.append([int(s.d_delays[ind]),(s.d_psizes[ind]/maxval)])
+    # sort darr by time
+    darr.sort(key=itemgetter(0))
+
+    def dummy(t,pdarr):
+        # inefficient but improve later
+        # check if before first or after last
+        if len(pdarr)==0:
+            return 0
+        if t < pdarr[0][0]:
+            return 0
+        if t > pdarr[-1][0]:
+            return 0
+        for pind in range(0,len(pdarr)):
+            if t < pdarr[pind][0]:
+                #print ("t = " + str(t) + " ind = " + str(pind) + " prev: " + str(pdarr[pind-1]) + " next: " + str(pdarr[pind]) + "\n")
+                return (pdarr[pind-1][1]+pdarr[pind][1])/2
+            pind += 1
+            if pind >= len(pdarr):
+                return 0
+        return 0
+
+    return dummy,darr
+
 # main line code...
 
 # command line arg handling 
@@ -861,200 +895,49 @@ if len(the_arr)==0:
     print(sys.argv[0] + ": No sessions selected - exiting")
     sys.exit(0)
 
-# allocate sessions to channels/instruments
-# if there is a non-empty primary list then...
-# if src/dst is in primary list, then that gets lowest numbered channels
-# else if there is no primary list then we number from 0 on up
-# midi channel 9 is drums, so is handled specially (if at all)
-
-wcnt=0
+# Audio will contain a long list of samples (i.e. floating point numbers describing the
+# waveform).  If you were working with a very long sound you'd want to stream this to
+# disk instead of buffering it all in memory list this.  But most sounds will fit in 
+# memory.
+# make space for required duration plus 2s
+earliest=sys.maxsize
+latest=0
 for w in the_arr:
-    wcnt+=1
-    # next primary and secondary channels to allocate
-    pchan=0
-    schan=14
-    # first sort the sessions in each W
-    w.sessions=sorted(w.sessions,key=get_sortstr)
+    if w.earliest < earliest:
+        earliest=w.earliest
+    if w.latest > latest:
+        latest=w.latest
+overall_duration=latest-earliest
+
+waudio = []
+#append_silence(audio=waudio,duration_milliseconds=overall_duration+2000)
+append_sinewave(audio=waudio,duration_milliseconds=overall_duration+2000)
+for w in the_arr:
     for s in w.sessions:
-        
-        if len(primary_arr)==0:
-            if args.verbose:
-                print("\tAllocated " + str(s.sess_id) + " to channel " + str(pchan))
-            s.channel=pchan
-            pchan+=1
-        elif (len(s.s_psizes)>0 or len(s.d_psizes)>0) and (s.src in primary_arr or s.dst in primary_arr):
-            if args.verbose:
-                print("\tAllocated " + str(s.sess_id) + " to primary channel " + str(pchan))
-            s.channel=pchan
-            pchan+=1
+        # make session noise
+        print("Processing " + str(s.sess_id))
+        myfilter,farr=mk_envfilter(s,"foo")
+        #print(str(myfilter(100,farr)))
+        #print(str(farr))
+        thedur=0
+        if type(s.end_time) is 'datetime':
+            thedur=s.end_time.timestamp-s.timestamp
         else:
-            if args.verbose:
-                print("\tAllocated " + str(s.sess_id) + " to channel " + str(schan))
-            s.channel=schan
-            schan-=1
-        if (schan-1) <= pchan:
-            # start over
-            pchan=0
-            schan=14
-        if pchan==14:
-            pchan=0
+            ltx=0
+            if len(s.s_delays)>0:
+                ltx=s.s_delays[-1]
+            lrx=0
+            if len(s.d_delays)>0:
+                lrx=s.d_delays[-1]
+            thedur=max(ltx,lrx)
+        stime=0
+        if type(s.start_time) is 'datetime':
+            stime=s.start_time-w.earliest
+        else:
+            stime=s.timestamp-w.earliest
+        print("Adding from " + str(stime) + " for " + str(thedur))
+        #inject_sinewave(audio=waudio,freq=440.0,start_time=stime,duration_milliseconds=thedur)
+        inject_filtered_sinewave(audio=waudio,freq=440.0,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
 
-# bump up by one for anyone >=9 so we use 0..8 and 10..15
-for w in the_arr:
-    for s in w.sessions:
-        if s.channel >=9:
-            s.channel += 1
-
-# loop again through sessions to pick up PDU details
-# and generate initial note info
-base=60
-for w in the_arr:
-    track=0
-    for s in w.sessions:
-        # break remaining sessions into cadences
-        insts=analyse_cadence([s])
-        if args.verbose:
-            print("Found " + str(len(insts)) + " exchanges/cadences in session "+ str(s.sess_id) + "\n")
-        for e in insts:
-            if args.verbose:
-                print("Exchange:" + str(e))
-            # for all sessions that start before time T, we'll render those
-            # as drums, then switch to chords/notes
-            #if args.drums or e["c2st"][0] < drumlimit:
-            if args.drums:
-                # add a drum hit for each packet, different percussion instrument for c2s and s2c
-                # percussion instruments are encoded via note numbers from 35 to 81
-                # that (I think, roughly) maps to 65Hz (35), to 880Hz (81)
-                # so we'll try note 35 (acoustic bass drum) = 65Hz for c2s
-                # and note 38 (acoustic snare) = 77Hz for s2c
-                # but we hardcode drums for now
-                for i in range(0,len(s.s_psizes)):
-                    n=NoteInfo(True,9,track+2,9)
-                    n.ontime=(s.s_delays[i]+s.timestamp)-w.earliest
-                    n.offtime=n.ontime+100
-                    n.notenum=35
-                    w.notes.append(n)
-                for i in range(0,len(s.d_psizes)):
-                    n=NoteInfo(False,9,track+2,9)
-                    n.ontime=(s.d_delays[i]+s.timestamp)-w.earliest
-                    n.offtime=n.ontime+200
-                    n.notenum=38
-                    w.notes.append(n)
-            elif args.chords:
-                # many chords/cadence version
-                #echords=cadence2chords(e,s.channel,track+2,s.instrument,args.verbose)
-                # one chord/cadence version
-                echords=cadence2onechord(e,base,s.channel,track+2,s.instrument,args.verbose)
-                if args.verbose:
-                    print("Chords: " + str(echords))
-                if len(echords.notes)!=0:
-                    base = (base + 12) % 120
-                    if base==0:
-                        base=12
-                    for n in echords.notes:
-                        w.notes.append(n)
-                # keep 'em in a bit
-                del echords
-            else:
-                cnotes=cadence2notes(e,s.channel,track+2,s.instrument,args.verbose)
-                for n in cnotes:
-                    w.notes.append(n)
-
-        track+=1
-
-# sort notes timewise
-for w in the_arr:
-    w.notes=sorted(w.notes, key=get_start)
-    if args.verbose:
-        print(w)
-        print("\n")
-
-# pick notes from frequencies and handle time munging
-for w in the_arr:
-    for note in w.notes:
-        # linear time, with possible dilation
-        ontime=time_dilation*int(note.ontime)
-        offtime=time_dilation*int(note.offtime)
-        notenum=note.notenum
-        # Try another time compression - log compresses too much
-        if args.scaledtime:
-            ontime=time_dilation*scaletime(note.ontime)
-            offtime=time_dilation*scaletime(note.offtime)
-        # bit of paranoia...
-        if ontime < 0.0:
-            print("Weird ontime: " + str(ontime))
-            sys.exit(4)
-        if offtime < 0.0:
-            print("Weird offtime: " + str(offtime))
-            sys.exit(4)
-        # handle velocity (loudness) 
-        vel=velocity(notenum,note.channel,ontime,offtime-ontime,time_dilation*w.overall_duration)
-        # add what we've calculated to note
-        note.notenum=notenum
-        note.ontime=ontime
-        note.offtime=offtime
-        note.vel=vel
-
-# write out midicsv file, one per src ip
-# to play such:
-#   $ csvmidi <hash>.midi.csv <hash>.midi
-#   $ timidity <hash>.midi
-for w in the_arr:
-    if len(w.notes)==0:
-        if args.verbose:
-            print("Not writing to " + w.fname + ".midi.csv - no notes!")
-        continue
-    if args.verbose:
-        print("Writing to " + w.fname + ".midi.csv")
-
-    # we'll just keep an array of strings with one line per and won't
-    # bother making a python CSV structure
-    midicsv=[]
-    for repeat in range(0,overall_repeats):
-        for note in w.notes:
-            # odd structure here is so we can sort on time in a sec...
-            repeat_offset=repeat*(w.overall_duration+repeat_gap)
-            midicsv.append([note.track,int(note.ontime+repeat_offset),"Note_on_c",note.channel,note.notenum,note.vel,note.instrument])
-            midicsv.append([note.track,int(note.offtime+repeat_offset),"Note_off_c",note.channel,note.notenum,0,note.instrument])
-    
-    # now sort again by time
-    midicsv.sort(key=itemgetter(1))
-
-    # eliminate any non-changing time gaps > specified limit
-    if args.suppress_silence is not None:
-        killsilence(midicsv,args.suppress_silence)
-    
-    # now sort by track/channel
-    midicsv.sort(key=itemgetter(0))
-
-    with open(w.fname+".midi.csv","w") as f:
-        # precursor
-        current_track=midicsv[0][0]
-        f.write('0, 0, Header, 1, '+str(w.nsessions+1)+', 480\n\
-1, 0, Start_track\n\
-1, 0, Title_t, "Tls2Music ' + w.fname + '"\n\
-1, 0, Text_t, "see https://github.com/sftcd/tlspad/"\n\
-1, 0, Copyright_t, "This file is in the public domain"\n\
-1, 0, Time_signature, 4, 2, 24, 8\n\
-1, 0, Tempo, 500000\n\
-1, 0, End_track\n' +
-str(current_track) + ', 0, Start_track\n' +
-str(current_track) + ', 0, Instrument_name_t, "channel ' + str(midicsv[0][3]) + ' "\n' +
-str(current_track) + ', 0, Program_c, '+ str(midicsv[0][3]) + ', ' + instrument(instrumentnum,midicsv[0][6]) + '\n')
-        last_track_end=0
-        for line in midicsv:
-            if line[0]!=current_track:
-                f.write(str(current_track)+', '+str(last_track_end)+', End_track\n')
-                current_track=line[0]
-                f.write(str(current_track)+', 0, Start_track\n')
-                f.write(str(current_track)+', 0, Instrument_name_t, "channel '+str(line[3])+'"\n')
-                f.write(str(current_track)+', 0, Program_c, '+str(line[3])+', '+ instrument(instrumentnum,line[6]) + '\n')
-            last_track_end=line[1]
-            f.write(str(line[0])+", "+str(line[1])+", "+str(line[2]) + ", "+str(line[3])+", "+str(line[4])+", "+str(line[5])+"\n")
-        f.write(str(current_track)+', '+str(last_track_end)+', End_track\n')
-        f.write('0, 0, End_of_file\n')
-        f.close()
-    del midicsv
-
-
+save_wav("filtered.wav",audio=waudio)
 

@@ -73,6 +73,9 @@ later.
     - most recent change there is to try drums for sessions starting in the
     first 100 ms then swith to other instrument(s) and chords
 
+- [Tls2Music3.py](Tls2Music3.py) is yet another take at the above, his time
+  based on some ideas around filters (more of a w-i-p than the above still) 
+
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music
     - Looks like selenium/geckodriver is causing some spurious 
