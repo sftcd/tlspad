@@ -841,11 +841,11 @@ for s in sessions:
 
     # possibly extend duration based on last packet timing
     if len(s.s_delays) > 0 :
-        lst=s.timestamp+s.s_delays[-1]
+        lst=s.timestamp+(s.s_delays[-1]/1000)
     else: 
         lst=0
     if len(s.d_delays) > 0 :
-        lrt=s.timestamp+s.d_delays[-1]
+        lrt=s.timestamp+(s.d_delays[-1]/1000)
     else:
         lrt=0
     lt=max(lst,lrt)

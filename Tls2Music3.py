@@ -605,7 +605,7 @@ def velocity(notenum,channel,offset,duration,overall_duration):
 
 # envelope filter
 def mk_envfilter(s,ftype):
-    dolog=True
+    dolog=False
     # make up an array of time,val based on packet times/sizes
     # sent packets give negative values
     darr=[]
@@ -651,6 +651,28 @@ def mk_envfilter(s,ftype):
         return 0
 
     return dummy,darr
+
+def freq2num(freq):
+    '''
+    map a frequency in Hz to a midi note number
+    according to https://newt.phys.unsw.edu.au/jw/notes.html
+    we map this via:
+    midinum  =  12*log2(freq/440 Hz) + 69
+    I checked the accuracy of this and it seems good based on
+    the map at the above URL
+    '''
+    mnum=12*int(math.log2(freq/440))+69
+    #print("Mapped " + str(freq) + " to " + str(mnum))
+    return mnum
+
+def num2freq(num):
+    '''
+    map a piano key number to a frequency
+    done according to https://en.wikipedia.org/wiki/Piano_key_frequencies
+    '''
+    n=num%88
+    freq=440.0 * math.pow(2,(n-49)/12)
+    return freq
 
 # main line code...
 
@@ -875,11 +897,11 @@ for s in sessions:
 
     # possibly extend duration based on last packet timing
     if len(s.s_delays) > 0 :
-        lst=s.timestamp+s.s_delays[-1]
+        lst=s.timestamp+(s.s_delays[-1]/1000)
     else: 
         lst=0
     if len(s.d_delays) > 0 :
-        lrt=s.timestamp+s.d_delays[-1]
+        lrt=s.timestamp+(s.d_delays[-1]/1000)
     else:
         lrt=0
     lt=max(lst,lrt)
@@ -907,15 +929,17 @@ for w in the_arr:
         earliest=w.earliest
     if w.latest > latest:
         latest=w.latest
-overall_duration=latest-earliest
+overall_duration=1000*(latest-earliest)
 
 waudio = []
-#append_silence(audio=waudio,duration_milliseconds=overall_duration+2000)
-append_sinewave(audio=waudio,duration_milliseconds=overall_duration+2000)
+append_silence(audio=waudio,duration_milliseconds=overall_duration+2000)
+#append_sinewave(audio=waudio,duration_milliseconds=overall_duration+2000)
+keynumber=49 # middle-C
 for w in the_arr:
+    print("Session set starts at " +  str(w.earliest) + " till " + str(w.latest))
     for s in w.sessions:
         # make session noise
-        print("Processing " + str(s.sess_id))
+        print("Processing " + str(s.sess_id) + " starts at: " + str(s.timestamp))
         myfilter,farr=mk_envfilter(s,"foo")
         #print(str(myfilter(100,farr)))
         #print(str(farr))
@@ -932,12 +956,14 @@ for w in the_arr:
             thedur=max(ltx,lrx)
         stime=0
         if type(s.start_time) is 'datetime':
-            stime=s.start_time-w.earliest
+            stime=1000*(s.start_time-w.earliest)
         else:
-            stime=s.timestamp-w.earliest
-        print("Adding from " + str(stime) + " for " + str(thedur))
+            stime=1000*(s.timestamp-w.earliest)
         #inject_sinewave(audio=waudio,freq=440.0,start_time=stime,duration_milliseconds=thedur)
-        inject_filtered_sinewave(audio=waudio,freq=440.0,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
+        thefreq=num2freq(keynumber)
+        keynumber = (keynumber + 12) % 88
+        print("Adding from " + str(stime) + " for " + str(thedur) + " at " + str(thefreq) + "Hz")
+        inject_filtered_sinewave(audio=waudio,freq=thefreq,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
 
 save_wav("filtered.wav",audio=waudio)
 

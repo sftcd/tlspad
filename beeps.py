@@ -4,6 +4,7 @@
 import math
 import wave
 import struct
+import sys
 
 def append_silence(
         audio=[],
@@ -63,7 +64,10 @@ def inject_sinewave(
             if ind<al:
                 ov=audio[x+offset]
                 nv=volume * math.sin(2 * math.pi * freq * ( x / sample_rate ))
-                audio[x+offset]= 0.5 * ov + 0.5 * nv
+                if abs(ov) <= sys.float_info.epsilon:
+                    audio[x+offset]= nv
+                else:
+                    audio[x+offset]= 0.5 * ov + 0.5 * nv
             else:
                 # we've filled to end, may as well return
                 return
@@ -102,7 +106,10 @@ def inject_filtered_sinewave(
                 ov=audio[x+offset]
                 nv=volume * math.sin(2 * math.pi * freq * ( x / sample_rate ))
                 nv=nv*thefilter(msval,filarr)
-                audio[x+offset]= 0.5 * ov + 0.5 * nv
+                if abs(ov) <= sys.float_info.epsilon:
+                    audio[x+offset]= nv
+                else:
+                    audio[x+offset]= 0.5 * ov + 0.5 * nv
             else:
                 # we've filled to end, may as well return
                 return
