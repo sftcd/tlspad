@@ -32,7 +32,7 @@ SRCDIR=$HOME/code/tlspad
 
 function usage()
 {
-	echo "$0 [-u <url-or-file>] [-f <capture-file/dir>] [-b browser][-l <label>] [-s limit] [ -i instrument] [-kwvcLSnA]"
+	echo "$0 [-u <url-or-file>][-f <capture-file/dir>] [-b browser][-l <label>] [-s limit] [ -i instrument] [-kwvcLSnA123]"
     echo ""
     echo "Wrapper to grab TLS traffic info via tshark or tcpdump. Arguments can be:"
     echo "-h - produce this"
@@ -52,6 +52,9 @@ function usage()
     echo "-v - be verbose"
     echo "-I - generate ignore list (DNS stubby DoT sessions and selenium's defaults)"
     echo "-w - produce .wav files as well as .midi (warning: slow, maybe buggy)"
+    echo "-1 - use Tls2Music.py"
+    echo "-2 - use Tls2Music2.py"
+    echo "-3 - use Tls3Music3.py"
 	exit 99
 }
 
@@ -88,6 +91,9 @@ NOTEGEN=" -N freq"
 # whether to generate a new ignore.addrs file, default to yes
 GENIGNORE="no"
 
+# Version of our script to use
+T2MVER="1"
+
 # no hardcoded URL or URL filename
 URL=""
 
@@ -95,7 +101,7 @@ URL=""
 TDIR=""
 
 # options may be followed by one colon to indicate they have a required argument
-if ! options=$(getopt -s bash -o b:IV:nSu:i:sLkchwvf:l: -l browser:,ignore,vantage:,noclean,scaled,url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
+if ! options=$(getopt -s bash -o b:IV:nSu:i:sLkchwvf:l:123 -l browser:,ignore,vantage:,noclean,scaled,url:,instrument:,suppress:,logtime,skip,clean,help,wav,verbose,file:,label: -- "$@")
 then
 	# something went wrong, getopt will put out an error message for us
 	exit 1
@@ -120,6 +126,9 @@ do
         -L|--logtime) JUSTCLEAN="no"; LOGTIME=" -T ";;
         -S|--scaled) JUSTCLEAN="no"; SCALED=" -S ";;
         -I|--ignore) GENIGNORE="yes";;
+        -1) T2MVER="1";;
+        -2) T2MVER="2";;
+        -3) T2MVER="3";;
         -v|--verbose) VERBOSE=" -v ";;
 		(--) shift; break;;
 		(-*) echo "$0: error - unrecognized option $1" 1>&2; exit 1;;
@@ -288,14 +297,44 @@ then
             if [[ "$getpage_failed" == "no" ]]
             then
                 # Do the analysis to generate the csvmidi files (and optonal .wavs)
-                if [[ "$VERBOSE" != "" ]]
-                then
-                    echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE"
-                fi
-                # Whack the used-args to README too...
-                echo "Tls2Music Parameters:" >>README.md
-                echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE" >>README.md
-                $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE
+
+                case "$T2MVER" in
+                    1)
+                        if [[ "$VERBOSE" != "" ]]
+                        then
+                            echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE"
+                        fi
+                        # Whack the used-args to README too...
+                        echo "Tls2Music Parameters:" >>README.md
+                        echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE" >>README.md
+                        $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE
+                        ;;
+                    2)
+                        if [[ "$VERBOSE" != "" ]]
+                        then
+                            echo "Running: $SRCDIR/Tls2Music2.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE"
+                        fi
+                        # Whack the used-args to README too...
+                        echo "Tls2Music2 Parameters:" >>README.md
+                        echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE" >>README.md
+                        $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE
+                        ;;
+                    3)
+                        if [[ "$VERBOSE" != "" ]]
+                        then
+                            echo "Running: $SRCDIR/Tls2Music3.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $VANTAGE"
+                        fi
+                        # Whack the used-args to README too...
+                        echo "Tls2Music3 Parameters:" >>README.md
+                        echo "Running: $SRCDIR/Tls2Music3.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $VANTAGE" >> README.md
+                        $SRCDIR/Tls2Music3.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $VANTAGE
+                        ;;
+                    (*)
+                        echo "Unknown Tls2Music version ($T2MVER) - exiting"
+                        exit 99
+                        ;;
+                esac
+
             fi
 
             # and now force VANTAGE to the DNSname's A and AAAA
@@ -329,11 +368,43 @@ then
                 # generate the music you'd see if you just monitored the server side
                 VANTAGE=" -V $DNSname.srvadd"
                 thisLABEL=" -l $DNSname.$browser-server-vantage"
-                if [[ "$VERBOSE" != "" ]]
-                then
-                    echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE"
-                fi
-                $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE
+
+                case "$T2MVER" in
+                    1)
+                        if [[ "$VERBOSE" != "" ]]
+                        then
+                            echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE"
+                        fi
+                        # Whack the used-args to README too...
+                        echo "Tls2Music Parameters:" >>README.md
+                        echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE" >>README.md
+                        $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE
+                        ;;
+                    2)
+                        if [[ "$VERBOSE" != "" ]]
+                        then
+                            echo "Running: $SRCDIR/Tls2Music2.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE"
+                        fi
+                        # Whack the used-args to README too...
+                        echo "Tls2Music2 Parameters:" >>README.md
+                        echo "Running: $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE" >>README.md
+                        $SRCDIR/Tls2Music.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $WAVOUT $LOGTIME $SUPPRESS $INSTRUMENT $SCALED $VANTAGE $NOTEGEN $MAXNOTE
+                        ;;
+                    3)
+                        if [[ "$VERBOSE" != "" ]]
+                        then
+                            echo "Running: $SRCDIR/Tls2Music3.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $VANTAGE"
+                        fi
+                        # Whack the used-args to README too...
+                        echo "Tls2Music3 Parameters:" >>README.md
+                        echo "Running: $SRCDIR/Tls2Music3.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $VANTAGE" >> README.md
+                        $SRCDIR/Tls2Music3.py -f $DNSname.$browser.pcap $thisLABEL $VERBOSE $VANTAGE
+                        ;;
+                    (*)
+                        echo "Unknown Tls2Music version ($T2MVER) - exiting"
+                        exit 99
+                        ;;
+                esac
             fi
         done # browser_list
     done # url_list
@@ -387,8 +458,11 @@ then
         fi
     done
 else
-    echo "$0: No csvs to process - exiting"
-    exit 4
+    if [[ "$T2MVER" != "3" ]]
+    then
+        echo "$0: No csvs to process - exiting"
+        exit 4
+    fi
 fi
 
 cd $ODIR
@@ -396,6 +470,7 @@ if [[ "$NOCLEAN" == "no" && "$TDIR" != "" ]]
 then
     # clean up
     mv $TDIR/*.midi $ODIR
+    mv $TDIR/*.wav $ODIR
     mv $TDIR/*.ogg $ODIR
     mv $TDIR/*.png $ODIR
     mv $TDIR/*.srvadd $ODIR
@@ -410,6 +485,7 @@ then
 else
     echo "Full Results in $TDIR - please clean it up"
     cp $TDIR/*.midi $ODIR
+    cp $TDIR/*.wav $ODIR
     cp $TDIR/*.ogg $ODIR
     cp $TDIR/*.png $ODIR
     cp $TDIR/*.srvadd $ODIR

@@ -936,10 +936,12 @@ append_silence(audio=waudio,duration_milliseconds=overall_duration+2000)
 #append_sinewave(audio=waudio,duration_milliseconds=overall_duration+2000)
 keynumber=49 # middle-C
 for w in the_arr:
-    print("Session set starts at " +  str(w.earliest) + " till " + str(w.latest))
+    if args.verbose:
+        print("Session set starts at " +  str(w.earliest) + " till " + str(w.latest))
     for s in w.sessions:
         # make session noise
-        print("Processing " + str(s.sess_id) + " starts at: " + str(s.timestamp))
+        if args.verbose:
+            print("Processing " + str(s.sess_id) + " starts at: " + str(s.timestamp))
         myfilter,farr=mk_envfilter(s,"foo")
         #print(str(myfilter(100,farr)))
         #print(str(farr))
@@ -962,8 +964,11 @@ for w in the_arr:
         #inject_sinewave(audio=waudio,freq=440.0,start_time=stime,duration_milliseconds=thedur)
         thefreq=num2freq(keynumber)
         keynumber = (keynumber + 12) % 88
-        print("Adding from " + str(stime) + " for " + str(thedur) + " at " + str(thefreq) + "Hz")
+        if args.verbose:
+            print("Adding from " + str(stime) + " for " + str(thedur) + " at " + str(thefreq) + "Hz")
         inject_filtered_sinewave(audio=waudio,freq=thefreq,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
 
-save_wav("filtered.wav",audio=waudio)
+if args.verbose:
+    print("Saving " + w.fname + ".wav")
+save_wav(w.fname+".wav",audio=waudio)
 
