@@ -469,6 +469,7 @@ cd $ODIR
 if [[ "$NOCLEAN" == "no" && "$TDIR" != "" ]]
 then
     # clean up
+    mv $TDIR/*.pcap $ODIR
     mv $TDIR/*.midi $ODIR
     mv $TDIR/*.wav $ODIR
     mv $TDIR/*.ogg $ODIR
@@ -484,6 +485,7 @@ then
     rm -rf $TDIR
 else
     echo "Full Results in $TDIR - please clean it up"
+    cp $TDIR/*.pcap $ODIR
     cp $TDIR/*.midi $ODIR
     cp $TDIR/*.wav $ODIR
     cp $TDIR/*.ogg $ODIR
