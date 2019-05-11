@@ -75,6 +75,8 @@ later.
 
 - [Tls2Music3.py](Tls2Music3.py) is yet another take at the above, his time
   based on some ideas around filters (more of a w-i-p than the above still) 
+    - Interestingly feeding in initial silence or actual music doesn't
+    make much difference.
 
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music

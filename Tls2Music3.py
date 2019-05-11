@@ -932,7 +932,8 @@ for w in the_arr:
 overall_duration=1000*(latest-earliest)
 
 waudio = []
-append_silence(audio=waudio,duration_milliseconds=overall_duration+2000)
+append_file(audio=waudio,duration_milliseconds=overall_duration+2000)
+#append_silence(audio=waudio,duration_milliseconds=overall_duration+2000)
 #append_sinewave(audio=waudio,duration_milliseconds=overall_duration+2000)
 keynumber=49 # middle-C
 for w in the_arr:
@@ -967,6 +968,7 @@ for w in the_arr:
         if args.verbose:
             print("Adding from " + str(stime) + " for " + str(thedur) + " at " + str(thefreq) + "Hz")
         inject_filtered_sinewave(audio=waudio,freq=thefreq,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
+        #inject_filtered_constant(audio=waudio,constant=1.0,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
 
 if args.verbose:
     print("Saving " + w.fname + ".wav")

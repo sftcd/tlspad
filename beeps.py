@@ -2,9 +2,9 @@
 # SF version based on: https://stackoverflow.com/questions/33879523/python-how-can-i-generate-a-wav-file-with-beeps
 # that version based on : https://www.daniweb.com/code/snippet263775.html
 import math
-import wave
-import struct
+import wave, struct
 import sys
+import soundfile 
 
 def append_silence(
         audio=[],
@@ -20,6 +20,36 @@ def append_silence(
 
     return
 
+def append_file(
+        audio=[],
+        sample_rate=44100,
+        duration_milliseconds=500, 
+        fname="audio-in.wav"):
+    try:
+        na, fs = soundfile.read(fname)
+
+        if fs != sample_rate:
+            print("Weird sample rate, got: " + str(fs) + " wanted: " + str(sample_rate))
+
+        #print(audio.shape)
+        num_samples = duration_milliseconds * (sample_rate / 1000.0)
+        for x in range(int(num_samples)): 
+            audio.append(na[x,0])
+
+        '''
+        wf=wave.open(fname)
+        length = wf.getnframes()
+        print("Length=" + str(length))
+        for i in range(0,length):
+            waveData = wf.readframes(1)
+            data = struct.unpack("<h", waveData)
+            print(int(data[0]))
+        '''
+
+    except Exception as e:
+        print("append_file exception " + str(e) )
+        return 
+    return
 
 def append_sinewave(
         audio=[],
@@ -118,6 +148,49 @@ def inject_filtered_sinewave(
             #raise e
     return
 
+# This is a bit silly but might keep it anyway:-)
+def inject_filtered_constant(
+        audio=[],
+        sample_rate=44100,
+        constant=1.0,
+        start_time=0,
+        duration_milliseconds=500, 
+        volume=1.0,
+        thefilter=None,
+        filarr=None):
+    """
+    The sine wave generated here is the standard beep.  If you want something
+    more aggresive you could try a square or saw tooth waveform.   Though there
+    are some rather complicated issues with making high quality square and
+    sawtooth waves... which we won't address here :) 
+    We just inject this into the audio array at the start_time concerned
+    """ 
+    if thefilter is None:
+        return
+    num_samples = duration_milliseconds * (sample_rate / 1000.0)
+    offset = int(start_time * (sample_rate /1000.0) )
+    al=len(audio)
+    for x in range(int(num_samples)):
+        try:
+            ind=x+offset
+            msval=int(1000*ind/sample_rate)
+            #print(str(msval))
+            if ind<al:
+                ov=audio[x+offset]
+                nv=volume * constant
+                nv=nv*thefilter(msval,filarr)
+                if abs(ov) <= sys.float_info.epsilon:
+                    audio[x+offset]= nv
+                else:
+                    audio[x+offset]= 0.5 * ov + 0.5 * nv
+            else:
+                # we've filled to end, may as well return
+                return
+        except Exception as e:
+            print("Overflow: " + str(e) + " x: "  + str(x) + " offset: " + str(offset) + " len(audio): " + str(len(audio)))
+            #raise e
+    return
+
 
 def save_wav(file_name,audio=[],sample_rate=44100):
     # Open up a wav file
@@ -149,7 +222,18 @@ def save_wav(file_name,audio=[],sample_rate=44100):
     return
 
 
+def testit():
+    print("Testing " + sys.argv[0])
+    waudio=[]
+    append_file(audio=waudio, duration_milliseconds=5000)
+    print(len(waudio))
+    save_wav(audio=waudio,file_name="audio-out.wav")
+
+if __name__ == "__main__":
+    testit()
+
 '''
+legacy test code
 sps=['502', '502']
 spt=['29.589', '1031.098']
 dps=['445', '648', '1386', '1386', '1386', '1386', '1386', '1386', '1386', '1386', '1386', '1386']
