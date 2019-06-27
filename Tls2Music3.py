@@ -636,19 +636,41 @@ def mk_envfilter(s,ftype):
         # inefficient but improve later
         # check if before first or after last
         if len(pdarr)==0:
-            return 0
+            return 1
         if t < pdarr[0][0]:
-            return 0
+            return 1
+        if t == pdarr[0][0]:
+            return(pdarr[0][1])
+        if t == pdarr[-1][0]:
+            return(pdarr[-1][1])
         if t > pdarr[-1][0]:
-            return 0
+            return 1
+        f_ind=-2
         for pind in range(0,len(pdarr)):
             if t < pdarr[pind][0]:
-                #print ("t = " + str(t) + " ind = " + str(pind) + " prev: " + str(pdarr[pind-1]) + " next: " + str(pdarr[pind]) + "\n")
-                return (pdarr[pind-1][1]+pdarr[pind][1])/2
-            pind += 1
-            if pind >= len(pdarr):
-                return 0
-        return 0
+                f_ind=pind
+                break;
+        if f_ind==-2:
+            # not found somehow
+            print ("Not found! t = " + str(t) + " ind = " + str(pind) + " prev: " + str(pdarr[pind-1]) + " next: " + str(pdarr[pind]))
+            return 1
+        if f_ind==0:
+            print ("found at start! t = " + str(t) + " ind = " + str(f_ind) + " prev: " + str(pdarr[f_ind-1]) + " next: " + str(pdarr[f_ind]))
+            return(pdarr[0][1])
+        # use interpolated value
+        t1=pdarr[f_ind-1][0]
+        v1=pdarr[f_ind-1][1]
+        t2=pdarr[f_ind][0]
+        v2=pdarr[f_ind][1]
+        # slope of line:
+        m=1
+        if t2!=t1:
+            m=(v2-v1)/(t2-t1)
+        else:
+            print("Interpolation panix: t= " + str(t) + " ind = " + str(f_ind) + " prev: " + str(pdarr[f_ind-1]) + " next: " + str(pdarr[f_ind]))
+        interpol=m*(t-t1)+v1
+        #print ("found! t = " + str(t) + " ind = " + str(f_ind) + " prev: " + str(pdarr[f_ind-1]) + " next: " + str(pdarr[f_ind]) + "interpol=" + str(interpol))
+        return interpol
 
     return dummy,darr
 

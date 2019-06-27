@@ -77,6 +77,7 @@ later.
   based on some ideas around filters (more of a w-i-p than the above still) 
     - Interestingly feeding in initial silence or actual music doesn't
     make much difference.
+    - Code isn't really working usefully yet
 
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music

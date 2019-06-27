@@ -165,12 +165,16 @@ def filter_existing(
         try:
             ind=x+offset
             msval=int(1000*x/sample_rate)
-            #print(str(msval))
             if ind<al:
-                ov=audio[x+offset]
+                ov=audio[ind]
                 nv=ov*thefilter(msval,filarr)
                 if abs(nv) > sys.float_info.epsilon:
-                    audio[x+offset]=nv
+                    audio[ind]=nv
+                    if (msval%100)==0:
+                        print("Replaced " + str(ov) + " with " + str(nv) + " at index: " + str(ind) + " msval=" + str(msval))
+                        print("Diff: " + str(ov-nv) + " ratio: " + str(ov/nv))
+                else:
+                    print("nv too small, ov: " + str(ov) + " nv:" + str(nv) + " at index: " + str(ind) + " msval=" + str(msval))
             else:
                 # we've filled to end, may as well return
                 return
