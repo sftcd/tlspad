@@ -967,7 +967,8 @@ for w in the_arr:
         keynumber = (keynumber + 12) % 88
         if args.verbose:
             print("Adding from " + str(stime) + " for " + str(thedur) + " at " + str(thefreq) + "Hz")
-        inject_filtered_sinewave(audio=waudio,freq=thefreq,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
+        filter_existing(audio=waudio,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
+        #inject_filtered_sinewave(audio=waudio,freq=thefreq,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
         #inject_filtered_constant(audio=waudio,constant=1.0,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
 
 if args.verbose:

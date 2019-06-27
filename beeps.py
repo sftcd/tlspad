@@ -130,7 +130,7 @@ def inject_filtered_sinewave(
     for x in range(int(num_samples)):
         try:
             ind=x+offset
-            msval=int(1000*ind/sample_rate)
+            msval=int(1000*x/sample_rate)
             #print(str(msval))
             if ind<al:
                 ov=audio[x+offset]
@@ -140,6 +140,37 @@ def inject_filtered_sinewave(
                     audio[x+offset]= nv
                 else:
                     audio[x+offset]= 0.5 * ov + 0.5 * nv
+            else:
+                # we've filled to end, may as well return
+                return
+        except Exception as e:
+            print("Overflow: " + str(e) + " x: "  + str(x) + " offset: " + str(offset) + " len(audio): " + str(len(audio)))
+            #raise e
+    return
+
+def filter_existing(
+        audio=[],
+        sample_rate=44100,
+        start_time=0,
+        duration_milliseconds=500, 
+        volume=1.0,
+        thefilter=None,
+        filarr=None):
+    if thefilter is None:
+        return
+    num_samples = duration_milliseconds * (sample_rate / 1000.0)
+    offset = int(start_time * (sample_rate /1000.0) )
+    al=len(audio)
+    for x in range(int(num_samples)):
+        try:
+            ind=x+offset
+            msval=int(1000*x/sample_rate)
+            #print(str(msval))
+            if ind<al:
+                ov=audio[x+offset]
+                nv=ov*thefilter(msval,filarr)
+                if abs(nv) > sys.float_info.epsilon:
+                    audio[x+offset]=nv
             else:
                 # we've filled to end, may as well return
                 return
@@ -173,7 +204,7 @@ def inject_filtered_constant(
     for x in range(int(num_samples)):
         try:
             ind=x+offset
-            msval=int(1000*ind/sample_rate)
+            msval=int(1000*x/sample_rate)
             #print(str(msval))
             if ind<al:
                 ov=audio[x+offset]

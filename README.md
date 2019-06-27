@@ -317,5 +317,8 @@ Things I looked at, in less or lesser detail...
   who seems to work in this space.
   Not quite the same thing, but has similarities and I need to check out the references to
   earlier work, some of those sound more similar.
+- Another data sonification tool called [twotone](https://github.com/datavized/twotone)
+- a [paper](https://www.eurekalert.org/pub_releases/2019-06/miot-tpi062119.php) based on amino acids
+- another [paper](https://mct-master.github.io/sonification/2019/04/19/The_Sound_of_Traffic.html) based on vehicles 
 
 
