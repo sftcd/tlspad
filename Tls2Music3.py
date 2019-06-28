@@ -605,7 +605,7 @@ def velocity(notenum,channel,offset,duration,overall_duration):
 
 # envelope filter
 def mk_envfilter(s,ftype):
-    dolog=False
+    dolog=True
     # make up an array of time,val based on packet times/sizes
     # sent packets give negative values
     darr=[]
@@ -932,7 +932,7 @@ for s in sessions:
     # update overall duration
     w.overall_duration=w.latest-w.earliest
     if args.verbose:
-        print("overall: " + str(w.overall_duration) + "E: " +  str(w.earliest) + " L:" + str(w.latest))
+        print("overall duration: " + str(w.overall_duration) + " earliest: " +  str(w.earliest) + " latest:" + str(w.latest))
 
 # Could be selectors given mean we have no sessions to handle
 if len(the_arr)==0:
@@ -984,12 +984,14 @@ for w in the_arr:
             stime=1000*(s.start_time-w.earliest)
         else:
             stime=1000*(s.timestamp-w.earliest)
-        #inject_sinewave(audio=waudio,freq=440.0,start_time=stime,duration_milliseconds=thedur)
-        thefreq=num2freq(keynumber)
-        keynumber = (keynumber + 12) % 88
+        #thefreq=num2freq(keynumber)
+        #keynumber = (keynumber + 12) % 88
         if args.verbose:
-            print("Adding from " + str(stime) + " for " + str(thedur) + " at " + str(thefreq) + "Hz")
+            #print("Adding from " + str(stime) + " for " + str(thedur) + " at " + str(thefreq) + "Hz")
+            print("Filtering from " + str(stime) + " for " + str(thedur) )
+            print(farr)
         filter_existing(audio=waudio,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
+        #inject_sinewave(audio=waudio,freq=thefreq,start_time=stime,duration_milliseconds=thedur)
         #inject_filtered_sinewave(audio=waudio,freq=thefreq,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
         #inject_filtered_constant(audio=waudio,constant=1.0,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
 

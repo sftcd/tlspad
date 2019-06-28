@@ -943,7 +943,7 @@ for s in sessions:
     # update overall duration
     w.overall_duration=w.latest-w.earliest
     if args.verbose:
-        print("overall: " + str(w.overall_duration) + "E: " +  str(w.earliest) + " L:" + str(w.latest))
+        print("overall duration: " + str(w.overall_duration) + " earliest: " +  str(w.earliest) + " latest:" + str(w.latest))
 
 # Could be selectors given mean we have no sessions to handle
 if len(the_arr)==0:
