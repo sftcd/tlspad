@@ -50,7 +50,7 @@ from selenium.webdriver.common import desired_capabilities
 
 home=os.environ['HOME']
 mozpre="/.mozilla/firefox/"
-tp_names=glob.glob(os.path.join(home+mozpre,"*.Testing"))
+tp_names=glob.glob(os.path.join(home+mozpre,"*.selenium"))
 
 argparser=argparse.ArgumentParser(description='Grab a URL using selenium')
 argparser.add_argument('-u','--url',     

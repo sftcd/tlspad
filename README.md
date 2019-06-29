@@ -87,7 +87,7 @@ later.
     of default browsing experience most likely. Plan: Try figure how to
     not make these connecctions then decide later.
         - Added a check internally - if a FF profile directory
-        matching ``$HOME/.mozilla/firefox/*.Testing`` exists then 
+        matching ``$HOME/.mozilla/firefox/*.selenium`` exists then 
         the first of those is used as the FF profile when starting.
         Have to see if that honors the "no reporting" privacy
         settings in FF.
@@ -97,7 +97,17 @@ later.
         some unexpected oddball IPs, despite using profile with telemetry
         off
         - Leave it for now, hope to learn more about it as we go
+        - I had been using a "Testing" profile (and ``*.Testing`` instead
+        of the ``*.selenium'' above) for other reasons with FF nightly,
+        and FF objected to going back and forth with different
+        versions but the same profile, so I introduced the new one
+        descibed above. As a reminder to self, the way to do that is:
 
+            $ firefox -p
+
+        then follow the instructions. Be careful to not leave the newly
+        created profile as the default or you'll surprise yourself later
+        when you fire up a browser expecting otherwise.
 
 - [composer.sh](composer.sh) is a wrapper for the above:
 
