@@ -167,7 +167,17 @@ def filter_existing(
             msval=int(1000*x/sample_rate)
             if ind<al:
                 ov=audio[ind]
-                nv=ov*thefilter(msval,filarr)
+                fval=thefilter(msval,filarr)
+                # alternatives below...
+                # alt1: divide - too loud
+                if abs(fval)>sys.float_info.epsilon:
+                    nv=ov/fval
+                else:
+                    nv=ov
+                # alt2: multiply - too quiet
+                #nv=ov*fval
+                # alt2: add - just "as is" with noise
+                #nv=ov+fval
                 if abs(nv) > sys.float_info.epsilon:
                     audio[ind]=nv
                     if (msval%100)==0:
@@ -250,6 +260,11 @@ def save_wav(file_name,audio=[],sample_rate=44100):
     # use the floating point -1.0 to 1.0 data directly in a WAV file but not
     # obvious how to do that using the wave module in python.
     for sample in audio:
+        # normalise if needed
+        if sample > 0:
+            sample=sample%1
+        if sample < 0:
+            sample=-1*(abs(sample)%1)
         wav_file.writeframes(struct.pack('h', int( sample * 32767.0 )))
 
     wav_file.close()
