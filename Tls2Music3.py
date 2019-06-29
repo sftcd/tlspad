@@ -954,8 +954,8 @@ for w in the_arr:
 overall_duration=1000*(latest-earliest)
 
 waudio = []
-append_file(audio=waudio,duration_milliseconds=overall_duration+2000)
-#append_silence(audio=waudio,duration_milliseconds=overall_duration+2000)
+#append_file(audio=waudio,duration_milliseconds=overall_duration+2000)
+append_silence(audio=waudio,duration_milliseconds=overall_duration+2000)
 #append_sinewave(audio=waudio,duration_milliseconds=overall_duration+2000)
 keynumber=49 # middle-C
 for w in the_arr:
@@ -984,15 +984,15 @@ for w in the_arr:
             stime=1000*(s.start_time-w.earliest)
         else:
             stime=1000*(s.timestamp-w.earliest)
-        #thefreq=num2freq(keynumber)
-        #keynumber = (keynumber + 12) % 88
         if args.verbose:
             #print("Adding from " + str(stime) + " for " + str(thedur) + " at " + str(thefreq) + "Hz")
             print("Filtering from " + str(stime) + " for " + str(thedur) )
             print(farr)
-        filter_existing(audio=waudio,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
+        thefreq=num2freq(keynumber)
+        keynumber = (keynumber + 12) % 88
+        #filter_existing(audio=waudio,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
         #inject_sinewave(audio=waudio,freq=thefreq,start_time=stime,duration_milliseconds=thedur)
-        #inject_filtered_sinewave(audio=waudio,freq=thefreq,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
+        inject_filtered_sinewave(audio=waudio,freq=thefreq,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
         #inject_filtered_constant(audio=waudio,constant=1.0,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
 
 if args.verbose:

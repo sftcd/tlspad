@@ -170,14 +170,21 @@ def filter_existing(
                 fval=thefilter(msval,filarr)
                 # alternatives below...
                 # alt1: divide - too loud
-                if abs(fval)>sys.float_info.epsilon:
-                    nv=ov/fval
-                else:
-                    nv=ov
+                #if abs(fval)>sys.float_info.epsilon:
+                    #nv=ov/fval
+                #else:
+                    #nv=ov
                 # alt2: multiply - too quiet
                 #nv=ov*fval
-                # alt2: add - just "as is" with noise
+                # alt3: add - just "as is" with noise
                 #nv=ov+fval
+                # alt4: sine of sum
+                #nv=math.sin(ov+fval)
+                # alt5: average
+                if abs(ov) > sys.float_info.epsilon:
+                    nv=0.5*fval+0.5*ov
+                else:
+                    nv=fval
                 if abs(nv) > sys.float_info.epsilon:
                     audio[ind]=nv
                     if (msval%100)==0:
