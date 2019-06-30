@@ -657,7 +657,7 @@ def mk_envfilter(s,ftype):
         if f_ind==0:
             print ("found at start! t = " + str(t) + " ind = " + str(f_ind) + " prev: " + str(pdarr[f_ind-1]) + " next: " + str(pdarr[f_ind]))
             return(pdarr[0][1])
-        # use interpolated value
+        # use linear interpolated value
         t1=pdarr[f_ind-1][0]
         v1=pdarr[f_ind-1][1]
         t2=pdarr[f_ind][0]

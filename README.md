@@ -73,11 +73,22 @@ later.
     - most recent change there is to try drums for sessions starting in the
     first 100 ms then swith to other instrument(s) and chords
 
-- [Tls2Music3.py](Tls2Music3.py) is yet another take at the above, his time
+- [Tls2Music3.py](Tls2Music3.py) is yet another take at the above, this time
   based on some ideas around filters (more of a w-i-p than the above still) 
-    - Interestingly feeding in initial silence or actual music doesn't
-    make much difference.
-    - Code isn't really working usefully yet
+    - Interestingly feeding in initial silence, a sine-wave or actual music doesn't
+    make that much difference.
+    - What we're doing so far is, for each TLS session, consider packet times 
+    as the X-axis, we map sizes to [-1,1] on the Y-axis. Y=1 is for the
+    largest packet received, with others proportionally in the range [0,1]
+    (so if a packet is 50% of the biggest it'll get the value 0.5).
+    - sent packets are mapped to [0,-1] in a similar manner
+    - there's a logarithmic variant too (currently applied)
+    - if a TLS session lasts from M to N ms, then we modify the
+    PCM samples for that time based on the value of Y - we interpolate
+    between points using lines for now. (TODO: change to curves)
+    - PCM sample modification is: if current sample < epsilon then
+    replace with new value, otherwise replace with average of  
+    current and new
 
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music
