@@ -106,6 +106,55 @@ def inject_sinewave(
             #raise e
     return
 
+def damp(vol,n,x):
+    '''
+    Down the volume for nicer sounds
+    '''
+    vd=vol/n
+    ld=vol-(x*vd)
+    return ld
+
+def inject_sinewave_damp(
+        audio=[],
+        sample_rate=44100,
+        freq=440.0, 
+        start_time=0,
+        duration_milliseconds=500, 
+        volume=1.0):
+    """
+    The sine wave generated here is the standard beep.  If you want something
+    more aggresive you could try a square or saw tooth waveform.   Though there
+    are some rather complicated issues with making high quality square and
+    sawtooth waves... which we won't address here :) 
+    We just inject this into the audio array at the start_time concerned
+    We damp the volume as we go...
+    """ 
+    num_samples = duration_milliseconds * (sample_rate / 1000.0)
+    if num_samples==0:
+        print("No samples!")
+        return
+    offset = int(start_time * (sample_rate /1000.0) )
+    al=len(audio)
+    for x in range(int(num_samples)):
+        try:
+            ind=x+offset
+            if ind<al:
+                ov=audio[x+offset]
+                #nv=damp(volume,num_samples,x) * math.sin(2 * math.pi * freq * ( ind / sample_rate ))
+                sin_in= (2 * math.pi * freq * ind) / sample_rate 
+                nv=volume * math.exp((-1.0*x)/sample_rate) * math.sin(4 * sin_in)
+                if abs(ov) <= sys.float_info.epsilon:
+                    audio[x+offset]= nv
+                else:
+                    audio[x+offset]= 0.5 * ov + 0.5 * nv
+            else:
+                # we've filled to end, may as well return
+                return
+        except Exception as e:
+            print("Overflow: " + str(e) + " x: "  + str(x) + " offset: " + str(offset) + " len(audio): " + str(len(audio)))
+            #raise e
+    return
+
 def inject_filtered_sinewave(
         audio=[],
         sample_rate=44100,
@@ -130,12 +179,13 @@ def inject_filtered_sinewave(
     for x in range(int(num_samples)):
         try:
             ind=x+offset
-            msval=int(1000*x/sample_rate)
+            msval=int(1000*ind/sample_rate)
             #print(str(msval))
             if ind<al:
                 ov=audio[x+offset]
                 nv=volume * math.sin(2 * math.pi * freq * ( x / sample_rate ))
-                nv=nv*thefilter(msval,filarr)
+                fval=thefilter(msval,filarr)
+                nv=nv*fval
                 if abs(ov) <= sys.float_info.epsilon:
                     audio[x+offset]= nv
                 else:
@@ -144,8 +194,8 @@ def inject_filtered_sinewave(
                 # we've filled to end, may as well return
                 return
         except Exception as e:
-            print("Overflow: " + str(e) + " x: "  + str(x) + " offset: " + str(offset) + " len(audio): " + str(len(audio)))
-            #raise e
+            print("Overflow: " + str(e) + " x: "  + str(x) + " offset: " + str(offset) + " len(audio): " + str(len(audio)) + " fval:" + str(fval))
+            raise e
     return
 
 def filter_existing(
@@ -164,9 +214,11 @@ def filter_existing(
     for x in range(int(num_samples)):
         try:
             ind=x+offset
-            msval=int(1000*x/sample_rate)
+            msval=int(1000*ind/sample_rate)
             if ind<al:
                 ov=audio[ind]
+                if abs(ov) <= sys.float_info.epsilon:
+                    print("ov too small, ov: " + str(ov) + " at index: " + str(ind) + " msval=" + str(msval))
                 fval=thefilter(msval,filarr)
                 # alternatives below...
                 # alt1: divide - too loud
@@ -175,7 +227,7 @@ def filter_existing(
                 #else:
                     #nv=ov
                 # alt2: multiply - too quiet
-                #nv=ov*fval
+                # nv=ov*fval
                 # alt3: add - just "as is" with noise
                 #nv=ov+fval
                 # alt4: sine of sum
@@ -187,9 +239,9 @@ def filter_existing(
                     nv=fval
                 if abs(nv) > sys.float_info.epsilon:
                     audio[ind]=nv
-                    if (msval%100)==0:
-                        print("Replaced " + str(ov) + " with " + str(nv) + " at index: " + str(ind) + " msval=" + str(msval))
-                        print("Diff: " + str(ov-nv) + " ratio: " + str(ov/nv))
+                    #if (msval%100)==0:
+                        #print("Replaced " + str(ov) + " with " + str(nv) + " at index: " + str(ind) + " msval=" + str(msval))
+                        #print("Diff: " + str(ov-nv) + " ratio: " + str(ov/nv))
                 else:
                     print("nv too small, ov: " + str(ov) + " nv:" + str(nv) + " at index: " + str(ind) + " msval=" + str(msval))
             else:
@@ -225,7 +277,7 @@ def inject_filtered_constant(
     for x in range(int(num_samples)):
         try:
             ind=x+offset
-            msval=int(1000*x/sample_rate)
+            msval=int(1000*ind/sample_rate)
             #print(str(msval))
             if ind<al:
                 ov=audio[x+offset]
@@ -282,7 +334,10 @@ def save_wav(file_name,audio=[],sample_rate=44100):
 def testit():
     print("Testing " + sys.argv[0])
     waudio=[]
-    append_file(audio=waudio, duration_milliseconds=5000)
+    append_silence(audio=waudio, duration_milliseconds=5000)
+    for ind in range(0,5):
+        inject_sinewave(audio=waudio, freq=440+5*ind, duration_milliseconds=5000)
+    #append_file(audio=waudio, duration_milliseconds=5000)
     print(len(waudio))
     save_wav(audio=waudio,file_name="audio-out.wav")
 

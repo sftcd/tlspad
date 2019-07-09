@@ -85,10 +85,22 @@ later.
     - there's a logarithmic variant too (currently applied)
     - if a TLS session lasts from M to N ms, then we modify the
     PCM samples for that time based on the value of Y - we interpolate
-    between points using lines for now. (TODO: change to curves)
-    - PCM sample modification is: if current sample < epsilon then
+    between points using lines for now. 
+    - PCM sample modification code has variants, e.g. if current sample < epsilon then
     replace with new value, otherwise replace with average of  
-    current and new
+    current and new, when/if I find a working variant ditch the
+    others and document it
+    - added polynomial and spline interpolation code - neither
+    yet really works well
+
+- [Tls2Music4.py](Tls2Music4.py) is a bit of a back-to-basics
+  attempt, mapping directly to wav files. Still doens't work 
+  well though;-(
+    - Novelty here (aka latest failed approach;-) is to inject
+    sine waves that are damped at a packet-time/size dependent frequency
+    that gets swapped out when the next packet in that TLS session
+    is sent/rx'd. 
+    - Ends up screechy though;-(
 
 - [getpage.py](getpage.py) uses selenium and FF to grab a front page so we can
     capture the pcap and make music

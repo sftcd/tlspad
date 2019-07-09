@@ -21,35 +21,7 @@
 # SOFTWARE.
 #
 
-# 3rd cut at it - try make a filter per TLS session
-
-'''
-    For eacH TLS session make a filter function (variations may
-    exist), then pick a note/chord and play the filtered form of
-    that for the duration of the session.
-
-    Possible fiter functions:
-        - a polynomial with packet sizes as coefficients and
-          order based on order seen, with sent packets using
-          negative co-efficients, e.g. if sessio was to send
-          one 100 byte packet then receive one 200 byte
-          packet and one 500 byte packet, we'd have:
-            f(x) = -100x + 200*x^2 + 500*x^3
-          To reduce that to a filter we divide by the max of
-          f(1) and abs(min(f(x in [1,-1]))) so tha we always
-          mape [-1,1] to [-1,1]
-        - variation: co-effs as log(2,size) to make numbers
-          smaller
-        - envelope: f(t) is a function that interoplates the 
-          packet sizes seen over time (negative for sent) so if 
-          a 100B packet was sent at t=1 and a 300B packet
-          received at t=2, then f(1.5)=200 or some other
-          interpolation
-        - variation: let f(t) decay to zero after N ms if
-          no new packets 
-
-    We'll try the evnelope first
-'''
+# 4th cut at it - just add per packet sine wave at size based freq 'till next packet 
 
 import traceback,math
 import os,sys,argparse,re,random,time,ipaddress
@@ -81,6 +53,12 @@ fodname="."
 label=None
 
 # Parameters we don't yet bother allowing be overridden via command line arguments
+
+# lowest note (Hz)
+lowest_note=20
+
+# highest note (Hz)
+highest_note=4000
 
 # time dilation - stretch it all out by this factor
 # effects aren't of much interest though - does make
@@ -1073,8 +1051,8 @@ for w in the_arr:
 overall_duration=1000*(latest-earliest)
 
 waudio = []
-append_file(audio=waudio,duration_milliseconds=overall_duration+2000)
-#append_silence(audio=waudio,duration_milliseconds=overall_duration+2000)
+#append_file(audio=waudio,duration_milliseconds=overall_duration+2000)
+append_silence(audio=waudio,duration_milliseconds=overall_duration+2000)
 #append_sinewave(audio=waudio,duration_milliseconds=overall_duration+2000)
 keynumber=49 # middle-C
 for w in the_arr:
@@ -1089,9 +1067,6 @@ for w in the_arr:
         # make session noise
         if args.verbose:
             print("Processing " + str(s.sess_id) + " starts at: " + str(s.timestamp))
-        #myfilter,farr=mk_envfilter(s,"foo")
-        #myfilter,farr=mk_polyfilter(s,"foo")
-        myfilter,farr=mk_splinefilter(s,"foo")
         thedur=0
         if type(s.end_time) is 'datetime':
             thedur=s.end_time.timestamp-s.timestamp
@@ -1109,15 +1084,31 @@ for w in the_arr:
         else:
             stime=1000*(s.timestamp-w.earliest)
         if args.verbose:
-            #print("Adding from " + str(stime) + " for " + str(thedur) + " at " + str(thefreq) + "Hz")
-            print("Filtering from " + str(stime) + " for " + str(thedur) )
-            print(farr)
-        thefreq=num2freq(keynumber)
-        keynumber = (keynumber + 12) % 88
-        filter_existing(audio=waudio,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
-        #inject_sinewave(audio=waudio,freq=thefreq,start_time=stime,duration_milliseconds=thedur)
-        #inject_filtered_sinewave(audio=waudio,freq=thefreq,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
-        #inject_filtered_constant(audio=waudio,constant=1.0,start_time=stime,duration_milliseconds=thedur,thefilter=myfilter,filarr=farr)
+            print("Adding sine waves from " + str(stime) + " for " + str(thedur) )
+        sarr=[]
+        for ind in range(0,len(s.s_psizes)):
+            sarr.append([int(s.s_delays[ind]),-1*s.s_psizes[ind]])
+        for ind in range(0,len(s.d_psizes)):
+            sarr.append([int(s.d_delays[ind]),s.d_psizes[ind]])
+        sarr.sort(key=itemgetter(0))
+
+        basefreq=400
+        freqincr=5
+        for ind in range(0,len(sarr)):
+            thefreq=(sarr[ind][1]*freqincr+basefreq)%(highest_note-lowest_note)+lowest_note
+            start=sarr[ind][0]
+            if ind == len(sarr)-1:
+                thisdur=thedur-sarr[ind][0]
+            else:
+                thisdur=sarr[ind+1][0]-start
+            if thisdur > 1000:
+                thisdur=1000
+            if args.verbose:
+                print("    Adding sine wave at freq: "+str(thefreq)+" from "+str(start)+" for "+str(thisdur)+" pkt: "+str(sarr[ind]))
+            if thisdur==0:
+                print("    Skipping - empty")
+            else:
+                inject_sinewave_damp(audio=waudio,freq=thefreq,start_time=start,duration_milliseconds=thisdur)
 
 if args.verbose:
     print("Saving " + w.fname + ".wav")
