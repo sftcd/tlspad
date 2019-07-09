@@ -99,6 +99,7 @@ class TLSSession():
                 "\t" + "Estimated RTT: " +  str(self.rttest) + "\n" + \
                 "\t" + "Cert size: " +  str(self.certsize) + " CV size (proxy): " + str(self.cvsize) + "\n" +  \
                 "\t" + "Min PDU: " + str(self.min_pdu) + " Max PDU: " + str(self.max_pdu) + " Num sizes: " + str(self.num_sizes) + "\n" + \
+                "\t" + "number tx'd: " + str(len(self.s_psizes)) + " rx'd: " + str(len(self.d_psizes)) + "\n" + \
                 "\t" + "source packet sizes: " + str(self.s_psizes) + "\n"+ \
                 "\t" + "source packet times: " + str(["%.3f" % v for v in self.s_delays]) + "\n" + \
                 "\t" + "dest packet sizes: " + str(self.d_psizes) + "\n" + \
